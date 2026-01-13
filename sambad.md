@@ -1,28 +1,3 @@
-
-
-> **Product Identity Notice**
->
-> This repository implements the private, single-client B2C application known publicly as **Private Sambad**. The repository name "sambad" is for internal use only and does not indicate a multi-tenant platform or SaaS. "B2C" is an internal classification and not part of the public product branding. The Sales Management OS is used solely for rule validation and governance, not for runtime or deployment.
-
-## Repository Overview
-
-This repository implements the private, single-client B2C product **Private Sambad**. It contains:
-- `app_user/` — Flutter user app (B2C)
-- `sambad_admin/` — Flutter admin console
-- `app_user/backend/sambad_backend/` — Node.js + TypeScript backend
-- `_ARCHIVE_sambad_legacy/` and other experimental folders — NOT part of production runtime; for reference and legacy only
-
-> **Note:** Only the directories listed above are maintained for production. All other folders are for legacy, experimental, or archival purposes and should not be used for new development.
-
-## Onboarding Quick Start
-
-1. Read the "Product Identity Notice" above.
-2. For user app development, see `app_user/frontend/README.md` and `LOGIC.md`.
-3. For admin console, see `sambad_admin/frontend/README.md` and `LOGIC.md`.
-4. For backend/API, see `app_user/backend/sambad_backend/README.md` and `LOGIC.md`.
-5. Ignore `_ARCHIVE_sambad_legacy/` and any folders not listed in the Repository Overview.
-6. For credentials and environment setup, see the "PostgreSQL Credentials" section below.
-
 ## 2025-12-31: Real-Time WebSocket Sync
 
 - WebSocket server added to backend (`src/websocket.ts`, integrated in `src/index.ts`).
@@ -30,7 +5,7 @@ This repository implements the private, single-client B2C product **Private Samb
 - Admin dashboard (Flutter) connects via `web_socket_channel` and updates UI instantly on new events.
 - All changes and rationale are tracked in `WEBSOCKET_SYNC.md`.
 
-# Private Sambad Documentation
+# Sambad Monorepo Documentation
 
 ---
 
