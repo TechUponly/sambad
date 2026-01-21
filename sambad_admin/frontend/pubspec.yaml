@@ -1,0 +1,28 @@
+name: sambad_admin
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: ^3.0.3
+  fl_chart: ^1.1.1
+  image_picker: ^1.2.1
+  graphql_flutter: ^5.1.0
+  http: ^1.1.0
+  flutter_typeahead: ^5.2.0
+  dio: ^5.0.0
+  google_fonts: ^6.3.3
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

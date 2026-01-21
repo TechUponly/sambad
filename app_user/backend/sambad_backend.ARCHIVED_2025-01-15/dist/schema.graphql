@@ -1,0 +1,18 @@
+type Admin {
+  id: ID!
+  email: String!
+  role: String!
+}
+
+type AdminAuthResponse {
+  token: String!
+  admin: Admin!
+}
+
+type Mutation {
+  adminLogin: AdminAuthResponse!
+}
+
+type Query {
+  _empty: String
+}

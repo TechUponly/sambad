@@ -1,0 +1,3 @@
+TypeORMError: No connection options were found in any orm configuration files.
+    at ConnectionOptionsReader.all (/Users/shamrai/Desktop/sambad/app_user/backend/node_modules/src/connection/ConnectionOptionsReader.ts:44:19)
+    at async ConnectionOptionsReader.get (/Users/shamrai/Desktop/sambad/app_user/backend/node_modules/src/connection/ConnectionOptionsReader.ts:56:28)

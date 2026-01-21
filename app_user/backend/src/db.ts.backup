@@ -1,0 +1,43 @@
+import "reflect-metadata";
+import { DataSource } from "typeorm";
+
+// --- User Entities ---
+import { User } from "./models/User";
+import { UserConsent } from "./models/UserConsent";
+import { ContactChannel } from "./models/ContactChannel";
+import { UserEvent } from "./models/UserEvent";
+import { SubscriptionPlan } from "./models/SubscriptionPlan";
+import { UserSubscription } from "./models/UserSubscription";
+
+// --- Admin Entities ---
+import { AdminUser } from "./models/AdminUser";
+import { AdminAuditLog } from "./models/AdminAuditLog";
+import { AdminFeatureFlag } from "./models/AdminFeatureFlag";
+
+// Unified DataSource for both Admin and User features
+export const AppDataSource = new DataSource({
+  type: "sqlite",
+  database: "../../sambad.db", // Path relative to this file; adjust if needed
+  entities: [
+    User,
+    UserConsent,
+    ContactChannel,
+    UserEvent,
+    SubscriptionPlan,
+    UserSubscription,
+    AdminUser,
+    AdminAuditLog,
+    AdminFeatureFlag,
+  ],
+  synchronize: true, // Set to false in production and use migrations
+  logging: false,
+  poolSize: 10, // Connection pooling for concurrent access
+});
+
+// Helper to initialize and get the DataSource instance
+export async function getDataSource(): Promise<DataSource> {
+  if (!AppDataSource.isInitialized) {
+    await AppDataSource.initialize();
+  }
+  return AppDataSource;
+}

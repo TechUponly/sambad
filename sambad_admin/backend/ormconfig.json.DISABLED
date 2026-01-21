@@ -1,0 +1,16 @@
+{
+  "type": "postgres",
+  "host": "localhost",
+  "port": 5432,
+  "username": "your_db_user",
+  "password": "your_db_password",
+  "database": "sambad_admin",
+  "synchronize": false,
+  "logging": true,
+  "entities": ["src/models/**/*.ts"],
+  "migrations": ["src/migration/**/*.ts"],
+  "cli": {
+    "entitiesDir": "src/models",
+    "migrationsDir": "src/migration"
+  }
+}

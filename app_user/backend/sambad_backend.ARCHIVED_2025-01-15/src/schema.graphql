@@ -1,0 +1,62 @@
+type Admin {
+  id: ID!
+  email: String!
+  role: String!
+}
+
+type AdminAuthResponse {
+  token: String!
+  admin: Admin!
+}
+
+type ContactChannel {
+  id: ID!
+  userId: String!
+  channel: String!
+  address: String!
+  verified: Boolean!
+  createdAt: String!
+}
+
+type User {
+  id: ID!
+  username: String
+  phone: String!
+  email: String
+  name: String
+  status: String!
+  createdAt: String!
+  lastActiveAt: String
+}
+
+type Analytics {
+  totalUsers: Int!
+  newUsers: Int!
+  totalContacts: Int!
+}
+
+type Activity {
+  description: String!
+  time: String!
+}
+
+type Mutation {
+  # Admin mutations (require admin role)
+  adminLogin(username: String!, password: String!): AdminAuthResponse!
+  
+  # User mutations (require user authentication)
+  createContactChannel(userId: String!, channel: String!, address: String!): ContactChannel!
+}
+
+type Query {
+  _empty: String
+  
+  # User queries
+  contactChannels(userId: String): [ContactChannel!]!
+  
+  # Admin queries (require admin role - checked in resolver)
+  adminUsers: [User!]!
+  adminAnalytics: Analytics!
+  adminActivity: [Activity!]!
+  adminContacts: [ContactChannel!]!
+}

@@ -1,0 +1,16 @@
+{
+  "watch": ["src"],
+  "ext": "ts",
+  "ignore": [
+    "*.log",
+    "*.test.ts",
+    "node_modules",
+    "build",
+    "dist",
+    "*.db",
+    "*.db-journal",
+    ".env"
+  ],
+  "delay": 2000,
+  "verbose": true
+}

@@ -1,0 +1,7 @@
+// This file now re-exports the unified AppDataSource
+// All admin features should use AppDataSource instead of AdminDataSource
+import { AppDataSource } from '../../../app_user/backend/sambad_backend/src/db';
+
+// For backward compatibility, export as AdminDataSource
+export const AdminDataSource = AppDataSource;
+export { AppDataSource };
