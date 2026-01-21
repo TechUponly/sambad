@@ -1,2 +1,22 @@
 node_modules
 _ARCHIVE_sambad_legacy/
+
+# Flutter build artifacts
+**/build/
+**/.dart_tool/
+**/flutter_assets/
+**/*.apk
+**/*.dill
+**/*.so
+**/incremental/
+**/merged_native_libs/
+
+# Flutter build artifacts
+**/build/
+**/.dart_tool/
+**/flutter_assets/
+**/*.apk
+**/*.dill
+**/*.so
+**/incremental/
+**/merged_native_libs/
