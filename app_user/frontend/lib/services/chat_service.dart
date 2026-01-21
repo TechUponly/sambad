@@ -602,10 +602,14 @@ class ChatService extends ChangeNotifier {
       final userId = prefs.getString('current_user_id') ?? '11111111-1111-1111-1111-111111111111'; // Default test user
       
       final apiService = ApiService();
+      
+      // Get or create contact user first
+      final contactUserResponse = await apiService.loginUser(contact.phone);
+      final contactUserId = contactUserResponse["id"];
+      
       final result = await apiService.createContactChannel(
         userId: userId,
-        channel: 'phone',
-        address: contact.phone,
+        contactUserId: contactUserId,
       );
       
       if (result != null) {
@@ -624,7 +628,6 @@ class ChatService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('[ChatService] Error syncing contact: $e');
-      // Continue even if sync fails - contact is saved locally
     }
     
     notifyListeners();

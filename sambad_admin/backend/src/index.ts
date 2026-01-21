@@ -1,10 +1,12 @@
 import 'reflect-metadata';
 import express from 'express';
 import axios from 'axios';
+import cors from 'cors';
 
 const USER_BACKEND = 'http://localhost:4000/api';
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {

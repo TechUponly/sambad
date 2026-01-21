@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 /// (Migration: 2025-12-31)
 
 class ApiService {
-  static const String baseUrl = 'https://your-backend-api-url.com/api';
+  static const String baseUrl = 'http://10.0.2.2:4000/api';
   final Dio _dio = Dio();
 
   Future<dynamic> get(String endpoint) async {
@@ -22,5 +22,34 @@ class ApiService {
     return response.data;
   }
 
-  // Add more API methods as needed...
+  // Contact channel creation for backend compatibility
+  Future<dynamic> createContactChannel({
+    required String userId,
+    required String contactUserId,
+  }) async {
+    return await post('contacts', {
+      'userId': userId,
+      'contactUserId': contactUserId,
+    });
+  }
+
+  // User login
+  Future<dynamic> loginUser(String phone) async {
+    return await post('users/login', {'phone': phone});
+  }
+
+  // Get contacts
+  Future<List<dynamic>> getContacts() async {
+    return await get('contacts');
+  }
+
+  // Get messages
+  Future<List<dynamic>> getMessages() async {
+    return await get('messages');
+  }
+
+  // Send message
+  Future<dynamic> sendMessage(Map<String, dynamic> messageData) async {
+    return await post('messages', messageData);
+  }
 }
