@@ -20,3 +20,4 @@ _ARCHIVE_sambad_legacy/
 **/*.so
 **/incremental/
 **/merged_native_libs/
+dist/
