@@ -5,7 +5,8 @@
   "scripts": {
     "start": "ts-node --transpile-only --project tsconfig.json src/index.ts",
     "dev": "nodemon --watch src -e ts --exec ts-node src/index.ts",
-    "typeorm": "ts-node ./node_modules/typeorm/cli.js"
+    "typeorm": "ts-node ./node_modules/typeorm/cli.js",
+    "build": "tsc"
   },
   "dependencies": {
     "@types/axios": "^0.9.36",
