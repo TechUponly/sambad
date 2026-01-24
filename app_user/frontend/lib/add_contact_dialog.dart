@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'models/contact.dart';
 
+const Color kPrimaryBlue = Color(0xFF5B7FFF);
+const Color kBgCard = Color(0xFF23272F);
+
 class AddContactDialog extends StatefulWidget {
-  final void Function(Contact) onAdd;
+  final Function(Contact) onAdd;
   const AddContactDialog({super.key, required this.onAdd});
 
   @override
@@ -10,88 +13,84 @@ class AddContactDialog extends StatefulWidget {
 }
 
 class _AddContactDialogState extends State<AddContactDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: kBgCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF23272F), Color(0xFF18181B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.18),
-              blurRadius: 32,
-              offset: const Offset(0, 8),
-            ),
-          ],
-          border: Border.all(color: Color(0xFF00FFC2).withOpacity(0.18), width: 1.5),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+        constraints: const BoxConstraints(maxWidth: 400),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Add Contact', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22, fontFamily: 'Montserrat')),
-            const SizedBox(height: 18),
-            Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'Name', labelStyle: TextStyle(color: Color(0xFF00FFC2))),
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Enter name' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _phoneController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'Phone', labelStyle: TextStyle(color: Color(0xFF00FFC2))),
-                    keyboardType: TextInputType.phone,
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Enter phone' : null,
-                  ),
-                ],
+            const Text('Add Contact', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 28),
+            TextField(
+              controller: _nameController,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              cursorColor: kPrimaryBlue,
+              decoration: InputDecoration(
+                hintText: 'Name',
+                hintStyle: const TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              cursorColor: kPrimaryBlue,
+              decoration: InputDecoration(
+                hintText: 'Phone',
+                hintStyle: const TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+              ),
+            ),
+            const SizedBox(height: 28),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white70, textStyle: const TextStyle(fontWeight: FontWeight.bold)),
-                  child: const Text('Cancel'),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontSize: 15)),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      widget.onAdd(Contact(id: DateTime.now().millisecondsSinceEpoch.toString(), name: _nameController.text.trim(), phone: _phoneController.text.trim()));
+                    if (_nameController.text.isNotEmpty && _phoneController.text.isNotEmpty) {
+                      final contact = Contact(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: _nameController.text,
+                        phone: _phoneController.text,
+                      );
+                      widget.onAdd(contact);
                       Navigator.of(context).pop();
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FFC2),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    elevation: 6,
-                    shadowColor: const Color(0xFF00FFC2).withOpacity(0.18),
+                    backgroundColor: kPrimaryBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    elevation: 0,
                   ),
-                  child: const Text('Add'),
+                  child: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
               ],
             ),
@@ -99,5 +98,12 @@ class _AddContactDialogState extends State<AddContactDialog> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 }

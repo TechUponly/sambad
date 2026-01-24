@@ -140,7 +140,7 @@ class _ChatPageState extends State<ChatPage> {
     final svc = context.watch<ChatService>();
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
+      appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)), 
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Row(
@@ -149,7 +149,7 @@ class _ChatPageState extends State<ChatPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF00FFC2), Color(0xFF7C3AED)],
+                  colors: [Color(0xFF5B7FFF), Color(0xFF4A6FE8)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -238,7 +238,7 @@ class _ChatPageState extends State<ChatPage> {
                                 ),
                                 child: const Icon(
                                   Icons.photo,
-                                  color: Color(0xFF00FFC2),
+                                  color: Color(0xFF5B7FFF),
                                   size: 26,
                                 ),
                               ),
@@ -261,7 +261,7 @@ class _ChatPageState extends State<ChatPage> {
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
-                                  color: Color(0xFF7C3AED),
+                                  color: Color(0xFF4A6FE8),
                                   size: 26,
                                 ),
                               ),
@@ -272,7 +272,7 @@ class _ChatPageState extends State<ChatPage> {
                           Expanded(
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.10),
+                                color: const Color(0xFF23272F),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               child: TextField(
@@ -309,8 +309,8 @@ class _ChatPageState extends State<ChatPage> {
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
                                     colors: [
-                                      Color(0xFF00FFC2),
-                                      Color(0xFF7C3AED),
+                                      Color(0xFF5B7FFF),
+                                      Color(0xFF4A6FE8),
                                     ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,

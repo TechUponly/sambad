@@ -5,6 +5,10 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import 'services/chat_service.dart';
 
+const Color kPrimaryBlue = Color(0xFF5B7FFF);
+const Color kBgDark = Color(0xFF181A20);
+const Color kBgCard = Color(0xFF23272F);
+
 class ProfileSectionPage extends StatefulWidget {
   const ProfileSectionPage({super.key});
 
@@ -13,7 +17,7 @@ class ProfileSectionPage extends StatefulWidget {
 }
 
 class _ProfileSectionPageState extends State<ProfileSectionPage> {
-    String? _profilePicPath;
+  String? _profilePicPath;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
@@ -27,10 +31,10 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    _nameController.text = prefs.getString('profile_name') ?? '';
-    _ageController.text = prefs.getString('profile_age') ?? '';
+    _nameController.text = prefs.getString('profile_name') ?? 'sham';
+    _ageController.text = prefs.getString('profile_age') ?? '32';
     setState(() {
-      _gender = prefs.getString('profile_gender');
+      _gender = prefs.getString('profile_gender') ?? 'Male';
       _profilePicPath = prefs.getString('profile_pic');
     });
   }
@@ -52,11 +56,23 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
     await prefs.setString('profile_age', _ageController.text.trim());
     await prefs.setString('profile_gender', _gender ?? '');
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile saved')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile saved!'), backgroundColor: kPrimaryBlue));
   }
 
   Future<void> _deleteAccount() async {
-    // Purge all private messages before clearing storage
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kBgCard,
+        title: const Text('Delete Account?', style: TextStyle(color: Colors.white)),
+        content: const Text('This will delete all your data permanently.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white60))),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
     await context.read<ChatService>().purgePrivateMessages();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -65,7 +81,6 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   }
 
   Future<void> _signOut() async {
-    // Ensure private chat history is wiped on sign-out
     await context.read<ChatService>().purgePrivateMessages();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwt');
@@ -75,217 +90,137 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.black87,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        foregroundColor: Colors.white,
       ),
-      backgroundColor: const Color(0xFF181A20),
+      backgroundColor: kBgDark,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF232526), Color(0xFF414345)],
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
-                ),
-              ),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              decoration: BoxDecoration(color: kBgCard, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10)]),
               child: Column(
                 children: [
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      CircleAvatar(
-                        radius: 44,
-                        backgroundColor: Colors.white,
-                        backgroundImage: _profilePicPath != null ? FileImage(File(_profilePicPath!)) : null,
-                        child: _profilePicPath == null
-                            ? Text(
-                                _nameController.text.isNotEmpty ? _nameController.text.substring(0, 1).toUpperCase() : '?',
-                                style: const TextStyle(fontSize: 36, color: Colors.black87, fontWeight: FontWeight.bold),
-                              )
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: _pickProfilePic,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.deepPurple,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: const Icon(Icons.add_a_photo, color: Colors.white, size: 20),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _nameController.text.isNotEmpty ? _nameController.text : 'Your Name',
-                    style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _gender != null && _gender!.isNotEmpty ? _gender! : 'Gender',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Card(
-                color: const Color(0xFF23272F),
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
+                  GestureDetector(
+                    onTap: _pickProfilePic,
+                    child: Stack(
                       children: [
-                        TextFormField(
-                          controller: _nameController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Name',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: Colors.white10,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          ),
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Enter your name' : null,
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: kPrimaryBlue,
+                          backgroundImage: _profilePicPath != null ? FileImage(File(_profilePicPath!)) : null,
+                          child: _profilePicPath == null ? Text(_nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : 'S', style: const TextStyle(fontSize: 48, color: Colors.white, fontWeight: FontWeight.bold)) : null,
                         ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _ageController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Age',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: Colors.white10,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Enter your age' : null,
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          initialValue: _gender,
-                          dropdownColor: const Color(0xFF23272F),
-                          style: const TextStyle(color: Colors.white),
-                          items: const [
-                            DropdownMenuItem(value: 'Male', child: Text('Male')),
-                            DropdownMenuItem(value: 'Female', child: Text('Female')),
-                            DropdownMenuItem(value: 'Other', child: Text('Other')),
-                          ],
-                          onChanged: (v) => setState(() => _gender = v),
-                          decoration: InputDecoration(
-                            labelText: 'Gender',
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: Colors.white10,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          ),
-                          validator: (v) => v == null || v.isEmpty ? 'Select gender' : null,
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: const Text('Save', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: kPrimaryBlue, shape: BoxShape.circle, border: Border.all(color: kBgCard, width: 3)),
+                            child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Card(
-                color: const Color(0xFF23272F),
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('Privacy Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-                      SizedBox(height: 8),
-                      Text(
-                        'Your chats are end-to-end encrypted. Only you and your contacts can read your messages. We do not store your messages on our servers.',
-                        style: TextStyle(fontSize: 15, color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _deleteAccount,
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      label: const Text('Delete Account', style: TextStyle(color: Colors.red)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _signOut,
-                      icon: const Icon(Icons.logout, color: Colors.deepPurple),
-                      label: const Text('Sign Out', style: TextStyle(color: Colors.deepPurple)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.deepPurple),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 16),
+                  Text(_nameController.text.isNotEmpty ? _nameController.text : 'sham', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(_gender ?? 'Male', style: const TextStyle(color: Colors.white60, fontSize: 14)),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Name', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _nameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: kBgCard,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Age', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _ageController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: kBgCard,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Gender', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _gender,
+                      dropdownColor: kBgCard,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: kBgCard,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+                      ),
+                      items: ['Male', 'Female', 'Other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                      onChanged: (v) => setState(() => _gender = v),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _saveProfile,
+                        style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        child: const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    const Divider(color: Colors.white24),
+                    const SizedBox(height: 16),
+                    const Text('Privacy Policy', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    const Text('Your chats are end-to-end encrypted. Only you and your contacts read your messages. We do not store your messages on our servers.', style: TextStyle(color: Colors.white60, fontSize: 14, height: 1.5)),
+                    const SizedBox(height: 32),
+                    SizedBox(width: double.infinity, height: 50, child: OutlinedButton(onPressed: _signOut, style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Sign Out', style: TextStyle(color: Colors.white)))),
+                    const SizedBox(height: 12),
+                    SizedBox(width: double.infinity, height: 50, child: OutlinedButton(onPressed: _deleteAccount, style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Delete Account', style: TextStyle(color: Colors.red)))),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _ageController.dispose();
+    super.dispose();
   }
 }

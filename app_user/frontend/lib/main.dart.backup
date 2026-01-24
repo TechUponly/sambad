@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'services/chat_service.dart';
-import 'screens/login_screen.dart';
+import 'profile_page.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -36,7 +36,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Sambad',
       theme: AppTheme.intuitiveTheme,
-      home: const LoginScreen(),
+      home: const LoginPage(),
     );
   }
 }

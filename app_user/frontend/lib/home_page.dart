@@ -1,962 +1,252 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'chat_page.dart';
+import 'package:share_plus/share_plus.dart';
+import 'services/chat_service.dart';
 import 'models/contact.dart';
 import 'widgets/contact_tile.dart';
-import 'widgets/right_sidebar.dart';
-import 'services/chat_service.dart';
+import 'chat_page.dart';
 import 'ai_bot_chat_page.dart';
-import 'profile_section_page.dart';
-import 'package:share_plus/share_plus.dart';
 import 'add_contact_dialog.dart';
-import 'phonebook_permission_dialog.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'profile_section_page.dart';
+import 'create_group_dialog.dart';
+
+const Color kPrimaryBlue = Color(0xFF5B7FFF);
+const Color kAccentGreen = Color(0xFF00C853);
+const Color kBgDark = Color(0xFF181A20);
+const Color kBgCard = Color(0xFF23272F);
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomeGroupCreateResult {
-  final String name;
-  final List<String> memberIds;
-
-  _HomeGroupCreateResult({required this.name, required this.memberIds});
-}
-
-class _HomePageState extends State<HomePage> {
-  final FocusNode _searchFocus = FocusNode();
-  final TextEditingController _searchController = TextEditingController();
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
-  Contact? _selectedContact;
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   String? _profileName;
-  // Removed unused fields _profilePhone and _loadingProfile
-
-  Future<void> _startSidebarCall({required bool video}) async {
-    // Use the same free Jitsi backend as private chat for demo.
-    const room = 'sambad-private-room';
-    final uri = Uri.parse(
-      video
-          ? 'https://meet.jit.si/$room'
-          : 'https://meet.jit.si/$room#config.startWithVideoMuted=true',
-    );
-
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to start call right now.')),
-      );
-    }
-  }
-
-  Future<void> _createGroup(BuildContext context) async {
-    final svc = context.read<ChatService>();
-    final contacts = svc.contacts;
-    final nameController = TextEditingController();
-    final Set<String> selectedIds = <String>{};
-
-    final _HomeGroupCreateResult?
-    result = await showDialog<_HomeGroupCreateResult>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF23272F),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Create group',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: StatefulBuilder(
-            builder: (ctx, setInnerState) {
-              return SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        labelText: 'Group name',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.deepPurple),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Select members',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      selectedIds.isEmpty
-                          ? 'No members selected'
-                          : '${selectedIds.length} member(s) selected',
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 260,
-                      child: contacts.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'You have no contacts yet. Add some to create a group.',
-                                style: TextStyle(color: Colors.white60),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: contacts.length,
-                              itemBuilder: (context, index) {
-                                final contact = contacts[index];
-                                final bool selected = selectedIds.contains(
-                                  contact.id,
-                                );
-                                return CheckboxListTile(
-                                  value: selected,
-                                  onChanged: (val) {
-                                    setInnerState(() {
-                                      if (val == true) {
-                                        selectedIds.add(contact.id);
-                                      } else {
-                                        selectedIds.remove(contact.id);
-                                      }
-                                    });
-                                  },
-                                  activeColor: Colors.deepPurple,
-                                  checkColor: Colors.white,
-                                  title: Text(
-                                    contact.name,
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    contact.phone,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                Navigator.of(ctx).pop(
-                  _HomeGroupCreateResult(
-                    name: name,
-                    memberIds: selectedIds.toList(),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text(
-                'Create',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (!mounted) return;
-    if (!context.mounted) return;
-    if (result != null && result.name.trim().isNotEmpty) {
-      await svc.addGroup(result.name.trim(), memberIds: result.memberIds);
-    }
-  }
-
-  Widget highlightText(String text) {
-    if (_searchQuery.isEmpty) {
-      return Text(text, style: const TextStyle(color: Colors.white));
-    }
-    final lcText = text.toLowerCase();
-    final lcQuery = _searchQuery.toLowerCase();
-    final start = lcText.indexOf(lcQuery);
-    if (start < 0) {
-      return Text(text, style: const TextStyle(color: Colors.white));
-    }
-    final end = start + lcQuery.length;
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: text.substring(0, start),
-            style: const TextStyle(color: Colors.white),
-          ),
-          TextSpan(
-            text: text.substring(start, end),
-            style: const TextStyle(
-              color: Colors.deepPurple,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(
-            text: text.substring(end),
-            style: const TextStyle(color: Colors.white),
-          ),
-        ],
-        style: const TextStyle(color: Colors.white),
-      ),
-    );
-  }
+  late AnimationController _fabAnimController;
 
   @override
   void initState() {
     super.initState();
+    _fabAnimController = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
     _loadProfile();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    _fabAnimController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProfile() async {
-    // Removed: setState(() => _loadingProfile = true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('jwt');
-      if (token == null) {
-        return;
-      }
-      final uri = Uri.parse('http://10.0.2.2:3000/me');
-      final resp = await http.get(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
-        if (data != null && data['success'] == true && data['user'] != null) {
-          final user = data['user'];
-          if (!mounted) return;
-          setState(() {
-            _profileName = user['name'] as String?;
-            // Removed: _profilePhone assignment
-          });
-          return;
-        }
-      }
-      await prefs.remove('jwt');
-    } catch (e) {
-      debugPrint('Failed to load profile: $e');
-    }
-    // Removed: setState(() => _loadingProfile = false);
+    setState(() => _profileName = 'Shamrai');
+  }
+
+  void _createGroup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => const CreateGroupDialog(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF181A20),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF23272F),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.account_circle, color: Colors.white, size: 28),
-          tooltip: 'Profile',
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileSectionPage()),
-            );
-          },
+      backgroundColor: kBgDark,
+      appBar: _buildAppBar(),
+      body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: kBgCard,
+      elevation: 0,
+      leadingWidth: 56,
+      leading: IconButton(
+        icon: CircleAvatar(
+          backgroundColor: kPrimaryBlue,
+          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'S', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
-        title: const Text(
-          'Sambad',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage())),
+      ),
+      actions: [
+        Container(
+          width: 240,
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          child: TextField(
+            controller: _searchController,
+            focusNode: _searchFocus,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Search chats...',
+              hintStyle: const TextStyle(color: Colors.white54),
+              filled: true,
+              fillColor: Colors.white10,
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+              prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
+              suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54, size: 18), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
+            ),
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
         ),
-        actions: [
-          SizedBox(
-            width: 220,
-            child: Stack(
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    switch (_currentIndex) {
+      case 0: return _buildChatsTab();
+      case 1: return _buildGroupsTab();
+      case 2: return _buildAIBotTab();
+      case 3: return _buildSettingsTab();
+      default: return _buildChatsTab();
+    }
+  }
+
+  Widget _buildChatsTab() {
+    return Consumer<ChatService>(
+      builder: (context, chatService, _) {
+        final allContacts = chatService.contacts;
+        final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.phone.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: kPrimaryBlue,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: const Row(
+                children: [
+                  Expanded(child: Text('Private Sambad welcomes you!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [kPrimaryBlue.withOpacity(0.2), kPrimaryBlue.withOpacity(0.1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: kPrimaryBlue.withOpacity(0.3), width: 2),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildActionButton(icon: Icons.person_add_outlined, label: 'Add Contact', onTap: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); }),
+                  _buildActionButton(icon: Icons.group_add_outlined, label: 'New Group', onTap: () => _createGroup(context)),
+                  _buildActionButton(icon: Icons.share_outlined, label: 'Invite Friends', onTap: () async { await Share.share('Join me on Sambad! Secure messaging app. Download now!'); }),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; final unread = index % 4 == 0; return Container(margin: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12), border: unread ? const Border(left: BorderSide(color: kPrimaryBlue, width: 2)) : null), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true))); }, unreadCount: unread ? 2 : 0)); })),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: kPrimaryBlue.withOpacity(0.3),
+          highlightColor: kPrimaryBlue.withOpacity(0.2),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocus,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Search contacts...',
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 0,
-                      horizontal: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.clear,
-                              color: Colors.white54,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _searchQuery = '';
-                                _searchController.clear();
-                              });
-                            },
-                          )
-                        : null,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                if (_searchQuery.length >= 3 && _searchFocus.hasFocus)
-                  Consumer<ChatService>(
-                    builder: (context, svc, _) {
-                      final allContacts = svc.contacts;
-                      final matches = allContacts
-                          .where(
-                            (c) =>
-                                c.name.toLowerCase().contains(
-                                  _searchQuery.toLowerCase(),
-                                ) ||
-                                c.phone.toLowerCase().contains(
-                                  _searchQuery.toLowerCase(),
-                                ),
-                          )
-                          .toList();
-                      if (matches.isEmpty) return const SizedBox();
-                      return Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 48,
-                        child: Material(
-                          color: const Color(0xFF23272F),
-                          elevation: 6,
-                          borderRadius: BorderRadius.circular(12),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: matches.length,
-                            itemBuilder: (context, idx) {
-                              final c = matches[idx];
-                              return ListTile(
-                                title: highlightText(c.name),
-                                subtitle: highlightText(c.phone),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.redAccent,
-                                  ),
-                                  tooltip: 'Delete Contact',
-                                  onPressed: () async {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        backgroundColor: const Color(
-                                          0xFF23272F,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        title: const Text(
-                                          'Delete Contact',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        content: Text(
-                                          'Are you sure you want to delete ${c.name}?',
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.of(ctx).pop(false),
-                                            child: const Text(
-                                              'Cancel',
-                                              style: TextStyle(
-                                                color: Colors.white70,
-                                              ),
-                                            ),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () =>
-                                                Navigator.of(ctx).pop(true),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.redAccent,
-                                            ),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm == true) {
-                                      if (!context.mounted) return;
-                                      final svc = context.read<ChatService>();
-                                      await svc.deleteContact(c.id);
-                                      if (_selectedContact?.id == c.id) {
-                                        setState(() {
-                                          _selectedContact = null;
-                                          _currentIndex = 0;
-                                        });
-                                      }
-                                    }
-                                  },
-                                ),
-                                onTap: () {
-                                  setState(() {
-                                    _currentIndex = 2;
-                                    _selectedContact = c;
-                                    _searchQuery = '';
-                                    _searchController.clear();
-                                  });
-                                  _searchFocus.unfocus();
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                Icon(icon, color: Colors.white, size: 28),
+                const SizedBox(height: 6),
+                Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
-        ],
+        ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isWide = constraints.maxWidth >= 900;
+    );
+  }
 
-          final Widget mainContent = Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 0.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.only(left: 24.0, bottom: 8.0),
-                  child: Text(
-                    _profileName != null && _profileName!.trim().isNotEmpty
-                        ? 'Hey ${_profileName!}, you are doing awesome!'
-                        : 'Hey there, you are doing awesome!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      if (_currentIndex == 0) {
-                        return Consumer<ChatService>(
-                          builder: (context, svc, _) {
-                            final allContacts = svc.contacts;
-                            final contacts = _searchQuery.isEmpty
-                                ? allContacts
-                                : allContacts
-                                      .where(
-                                        (c) =>
-                                            c.name.toLowerCase().contains(
-                                              _searchQuery.toLowerCase(),
-                                            ) ||
-                                            c.phone.toLowerCase().contains(
-                                              _searchQuery.toLowerCase(),
-                                            ),
-                                      )
-                                      .toList();
-                            final groups = svc.groups
-                                .where((g) => !svc.blockedGroups.contains(g))
-                                .toList();
-
-                            Widget buildContactsSection() {
-                              if (allContacts.isEmpty) {
-                                return Center(
-                                  child: Card(
-                                    color: const Color(0xFF23272F),
-                                    elevation: 8,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                    child: SingleChildScrollView(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 32.0,
-                                        vertical: 36,
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: const [
-                                              Icon(
-                                                Icons.share,
-                                                color: Colors.deepPurple,
-                                                size: 32,
-                                              ),
-                                              SizedBox(width: 16),
-                                              Icon(
-                                                Icons.person_add,
-                                                color: Colors.deepPurple,
-                                                size: 32,
-                                              ),
-                                              SizedBox(width: 16),
-                                              Icon(
-                                                Icons.import_contacts,
-                                                color: Colors.deepPurple,
-                                                size: 32,
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 28),
-                                          ElevatedButton.icon(
-                                            onPressed: () async {
-                                              await Share.share(
-                                                'Join me on Sambad! Download the app and chat with me.',
-                                              );
-                                            },
-                                            icon: const Icon(Icons.share),
-                                            label: const Text(
-                                              'Share Link to Invite Friends',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  Colors.deepPurple,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 24,
-                                                    vertical: 14,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          OutlinedButton.icon(
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder: (ctx) =>
-                                                    AddContactDialog(
-                                                      onAdd: (contact) async {
-                                                        final svc = context
-                                                            .read<
-                                                              ChatService
-                                                            >();
-                                                        await svc.addContact(
-                                                          contact,
-                                                        );
-                                                        setState(() {
-                                                          _currentIndex = 0;
-                                                          _selectedContact =
-                                                              contact;
-                                                        });
-                                                      },
-                                                    ),
-                                              );
-                                            },
-                                            icon: const Icon(Icons.person_add),
-                                            label: const Text('Add Contact'),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  Colors.deepPurple,
-                                              side: const BorderSide(
-                                                color: Colors.deepPurple,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 24,
-                                                    vertical: 14,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          OutlinedButton.icon(
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder: (ctx) =>
-                                                    PhonebookPermissionDialog(
-                                                      onAllow: () {
-                                                        Navigator.of(ctx).pop();
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        ).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                              'Phonebook extraction not implemented.',
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                      onDeny: () =>
-                                                          Navigator.of(
-                                                            ctx,
-                                                          ).pop(),
-                                                    ),
-                                              );
-                                            },
-                                            icon: const Icon(
-                                              Icons.import_contacts,
-                                            ),
-                                            label: const Text(
-                                              'Extract Phone Book (with consent)',
-                                            ),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  Colors.deepPurple,
-                                              side: const BorderSide(
-                                                color: Colors.deepPurple,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 24,
-                                                    vertical: 14,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              return ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 12,
-                                ),
-                                itemCount: contacts.length,
-                                separatorBuilder: (context, index) =>
-                                    const Divider(
-                                      color: Colors.white12,
-                                      indent: 72,
-                                      endIndent: 16,
-                                      height: 1,
-                                    ),
-                                itemBuilder: (context, index) {
-                                  final Contact c = contacts[index];
-                                  final bool unread = index % 4 == 0;
-                                  return ContactTile(
-                                    contact: c,
-                                    onTap: () {
-                                      setState(() {
-                                        _currentIndex = 2;
-                                        _selectedContact = c;
-                                      });
-                                    },
-                                    unreadCount: unread ? 1 : 0,
-                                  );
-                                },
-                              );
-                            }
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                    vertical: 4.0,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'Groups',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      TextButton.icon(
-                                        onPressed: () => _createGroup(context),
-                                        icon: const Icon(
-                                          Icons.group_add,
-                                          color: Colors.deepPurple,
-                                        ),
-                                        label: const Text(
-                                          'New group',
-                                          style: TextStyle(
-                                            color: Colors.deepPurple,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 54,
-                                  child: groups.isEmpty
-                                      ? const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 16.0,
-                                          ),
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'No groups yet. Create one to start a group chat.',
-                                              style: TextStyle(
-                                                color: Colors.white38,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                      : ListView.separated(
-                                          scrollDirection: Axis.horizontal,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16.0,
-                                          ),
-                                          itemBuilder: (ctx, i) {
-                                            final String name = groups[i];
-                                            return ActionChip(
-                                              label: Text(
-                                                name,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              backgroundColor: const Color(
-                                                0xFF23272F,
-                                              ),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _currentIndex = 2;
-                                                  _selectedContact = null;
-                                                });
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (_) => ChatPage(
-                                                      name: name,
-                                                      isPrivate: false,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                          },
-                                          separatorBuilder: (_, i) =>
-                                              const SizedBox(width: 8),
-                                          itemCount: groups.length,
-                                        ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                    vertical: 4.0,
-                                  ),
-                                  child: Text(
-                                    'Contacts',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Expanded(child: buildContactsSection()),
-                              ],
-                            );
-                          },
-                        );
-                      } else if (_currentIndex == 1) {
-                        return Container(color: const Color(0xFF181A20));
-                      } else if (_currentIndex == 2) {
-                        final bool isPrivate = _selectedContact == null;
-                        final String chatName = isPrivate
-                            ? 'Private'
-                            : _selectedContact!.name;
-                        return ChatPage(
-                          name: chatName,
-                          isPrivate: isPrivate,
-                          onCall: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Call feature coming soon!'),
-                              ),
-                            );
-                          },
-                        );
-                      } else if (_currentIndex == 3) {
-                        return const AIBotChatPage();
-                      } else {
-                        return Container(color: const Color(0xFF181A20));
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-
-          final Widget sidebar = RightSidebar(
-            onAddContact: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AddContactDialog(
-                  onAdd: (contact) async {
-                    final svc = context.read<ChatService>();
-                    await svc.addContact(contact);
-                    setState(() {
-                      _currentIndex = 0;
-                      _selectedContact = contact;
-                    });
-                  },
-                ),
-              );
-            },
-            onInvite: () async {
-              await Share.share(
-                'Join me on Sambad! Download the app and chat with me.',
-              );
-            },
-            onCall: (_currentIndex == 2 && _selectedContact != null)
-                ? () => _startSidebarCall(video: false)
-                : null,
-            onVideoCall: (_currentIndex == 2 && _selectedContact != null)
-                ? () => _startSidebarCall(video: true)
-                : null,
-            showCall: (_currentIndex == 2 && _selectedContact != null),
-          );
-
-          if (isWide) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: mainContent),
-                const SizedBox(width: 8),
-                sidebar,
-              ],
-            );
-          }
-
-          return Column(
+  Widget _buildEmptyState() {
+    return Expanded(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(child: mainContent),
+              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: kPrimaryBlue.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.chat_bubble_outline, size: 64, color: kPrimaryBlue)),
+              const SizedBox(height: 24),
+              const Text('No chats yet', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(width: 80, child: sidebar),
-                ),
+              const Text('Start a conversation by adding a contact', style: TextStyle(color: Colors.white60, fontSize: 16), textAlign: TextAlign.center),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); },
+                icon: const Icon(Icons.person_add),
+                label: const Text('Add Your First Contact'),
+                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
-            ],
-          );
-        },
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.white,
-        heroTag: 'home_private_fab',
-        onPressed: () => setState(() => _currentIndex = 2),
-        tooltip: 'Private Chat',
-        child: const Icon(Icons.lock, color: Colors.black87),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.black87,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6.0,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Expanded(
-                child: IconButton(
-                  onPressed: () => setState(() => _currentIndex = 0),
-                  icon: Icon(
-                    Icons.home,
-                    color: _currentIndex == 0 ? Colors.white : Colors.white70,
-                  ),
-                  tooltip: 'Contacts',
-                ),
-              ),
-              Expanded(
-                child: IconButton(
-                  onPressed: () => setState(() => _currentIndex = 1),
-                  icon: Icon(
-                    Icons.settings,
-                    color: _currentIndex == 1 ? Colors.white : Colors.white70,
-                  ),
-                  tooltip: 'Settings',
-                ),
-              ),
-              const Expanded(child: SizedBox()), // space for FAB
-              Expanded(
-                child: IconButton(
-                  onPressed: () => setState(() => _currentIndex = 3),
-                  icon: Icon(
-                    Icons.smart_toy,
-                    color: _currentIndex == 3 ? Colors.white : Colors.white70,
-                  ),
-                  tooltip: 'AI Bot',
-                ),
-              ),
-              Expanded(child: Container()),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildGroupsTab() {
+    return Consumer<ChatService>(builder: (context, chatService, _) { final groups = chatService.groups.where((g) => !chatService.blockedGroups.contains(g)).toList(); if (groups.isEmpty) { return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [ const Icon(Icons.groups, size: 64, color: Colors.white54), const SizedBox(height: 16), const Text('No groups yet', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(height: 12), const Text('Create a group to chat with multiple people', style: TextStyle(color: Colors.white60)), const SizedBox(height: 24), ElevatedButton.icon(onPressed: () => _createGroup(context), icon: const Icon(Icons.group_add), label: const Text('Create Group'), style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))), ])); } return ListView.builder(padding: const EdgeInsets.all(16), itemCount: groups.length, itemBuilder: (context, index) { final group = groups[index]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12)), child: ListTile(leading: CircleAvatar(backgroundColor: kPrimaryBlue.withOpacity(0.2), child: const Icon(Icons.group, color: kPrimaryBlue)), title: Text(group, style: const TextStyle(color: Colors.white)), subtitle: const Text('Tap to open', style: TextStyle(color: Colors.white60)), onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))); })); }); });
+  }
+
+  Widget _buildAIBotTab() {
+    return const AIBotChatPage();
+  }
+
+  Widget _buildSettingsTab() {
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: const [ Icon(Icons.settings, size: 64, color: Colors.white54), SizedBox(height: 16), Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), SizedBox(height: 8), Text('Coming soon', style: TextStyle(color: Colors.white60)), ]));
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(color: Colors.black87, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, -2))]),
+      child: SafeArea(
+        child: SizedBox(
+          height: 65,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', 8),
+              _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'Groups', 0),
+              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'AI Notes', 0),
+              _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings', 0),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData iconOutline, IconData iconFilled, String label, int badge) {
+    final bool isSelected = _currentIndex == index;
+    return Expanded(child: InkWell(onTap: () { setState(() => _currentIndex = index); _fabAnimController.forward(from: 0); }, child: Stack(alignment: Alignment.topCenter, children: [ Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: isSelected ? const BoxDecoration(border: Border(top: BorderSide(color: kPrimaryBlue, width: 2))) : null, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [ Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? kPrimaryBlue : Colors.white70, size: 24), const SizedBox(height: 4), Text(label, style: TextStyle(color: isSelected ? kPrimaryBlue : Colors.white70, fontSize: 11, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)), ])), if (badge > 0) Positioned(top: 4, right: MediaQuery.of(context).size.width / 8 - 20, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: kPrimaryBlue, borderRadius: BorderRadius.circular(10)), constraints: const BoxConstraints(minWidth: 18), child: Text(badge.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center))), ])));
   }
 }
