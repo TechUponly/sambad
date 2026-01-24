@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         Container(width: 70, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)), child: const Text('+91', style: TextStyle(color: Colors.white, fontSize: 16), textAlign: TextAlign.center)),
                         const SizedBox(width: 12),
-                        Expanded(child: TextField(controller: _phoneController, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontSize: 18), cursorColor: kPrimaryBlue, decoration: InputDecoration(hintText: 'Phone number', hintStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kPrimaryBlue, width: 2))))),
+                        Expanded(child: TextField(controller: _phoneController, autofocus: true, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontSize: 18), cursorColor: kPrimaryBlue, decoration: InputDecoration(hintText: 'Phone number', hintStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kPrimaryBlue, width: 2))))),
                       ],
                     ),
                     const SizedBox(height: 24),
