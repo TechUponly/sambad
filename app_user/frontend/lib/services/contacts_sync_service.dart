@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ContactsSyncService {
-  static const String _baseUrl = 'http://10.0.2.2:3000';
+  static const String _baseUrl = 'http://10.0.2.2:4000';
   
   static Future<bool> requestContactsPermission() async {
     return await FlutterContacts.requestPermission();

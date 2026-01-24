@@ -13,13 +13,13 @@ export class AdminLog {
   @JoinColumn({ name: 'admin_id' })
   admin_user: AdminUser;
 
-  @Column()
+  @Column({ type: 'varchar' })
   action: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   target_type: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   target_id: string | null;
 
   @CreateDateColumn()

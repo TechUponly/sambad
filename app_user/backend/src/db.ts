@@ -14,7 +14,7 @@ const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = Number(process.env.DB_PORT || 5432);
 const DB_USER = process.env.DB_USER || 'shamrai';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
-const DB_NAME = process.env.DB_NAME || 'sambad';
+const DB_NAME = process.env.DB_NAME || 'sambad_unified';
 
 export const AppDataSource = new DataSource({
   type: "postgres",
@@ -24,6 +24,6 @@ export const AppDataSource = new DataSource({
   password: DB_PASSWORD,
   database: DB_NAME,
   entities: [User, AdminUser, AdminLog, Contact, Message, Group, GroupMember, Setting],
-  synchronize: false,
+  synchronize: true,
   logging: true,
 });
