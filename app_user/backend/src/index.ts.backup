@@ -119,40 +119,6 @@ AppDataSource.initialize()
       }
     });
 
-    // Sync contacts endpoint
-    app.post('/api/sync-contacts', async (req, res) => {
-      try {
-        const { contacts } = req.body;
-        if (!contacts || !Array.isArray(contacts)) {
-          return res.status(400).json({ error: 'Invalid contacts data' });
-        }
-
-        const userRepo = AppDataSource.getRepository('User');
-        const contactRepo = AppDataSource.getRepository('Contact');
-        
-        // Find which contacts are registered Sambad users
-        const phones = contacts.map(c => c.phone).filter(p => p);
-        const registeredUsers = await userRepo
-          .createQueryBuilder('user')
-          .where('user.phone IN (:...phones)', { phones })
-          .getMany();
-
-        res.json({
-          success: true,
-          totalContacts: contacts.length,
-          sambadUsers: registeredUsers.map(u => ({
-            id: u.id,
-            phone: u.phone,
-            name: u.name
-          }))
-        });
-      } catch (error) {
-        console.error('Error syncing contacts:', error);
-        res.status(500).json({ error: 'Failed to sync contacts' });
-      }
-    });
-
-
     app.get('/api/health', (req, res) => {
       res.json({ status: 'healthy', database: 'connected' });
     });
