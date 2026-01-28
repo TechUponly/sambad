@@ -3,107 +3,37 @@ import 'models/contact.dart';
 
 const Color kPrimaryBlue = Color(0xFF5B7FFF);
 const Color kBgCard = Color(0xFF23272F);
+const Color kSuccessGreen = Color(0xFF00C853);
 
 class AddContactDialog extends StatefulWidget {
   final Function(Contact) onAdd;
   const AddContactDialog({super.key, required this.onAdd});
-
   @override
   State<AddContactDialog> createState() => _AddContactDialogState();
 }
 
 class _AddContactDialogState extends State<AddContactDialog> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _loading = false;
+  bool _showSuccess = false;
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: kBgCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 400),
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Add Contact', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 28),
-            TextField(
-              controller: _nameController,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              cursorColor: kPrimaryBlue,
-              decoration: InputDecoration(
-                hintText: 'Name',
-                hintStyle: const TextStyle(color: Colors.white54),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
-              ),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              cursorColor: kPrimaryBlue,
-              decoration: InputDecoration(
-                hintText: 'Phone',
-                hintStyle: const TextStyle(color: Colors.white54),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
-              ),
-            ),
-            const SizedBox(height: 28),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontSize: 15)),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: () {
-                    if (_nameController.text.isNotEmpty && _phoneController.text.isNotEmpty) {
-                      final contact = Contact(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        name: _nameController.text,
-                        phone: _phoneController.text,
-                      );
-                      widget.onAdd(contact);
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    elevation: 0,
-                  ),
-                  child: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _add() async {
+    if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty) return;
+    setState(() => _loading = true);
+    await Future.delayed(Duration(milliseconds: 500));
+    final contact = Contact(id: DateTime.now().millisecondsSinceEpoch.toString(), name: _nameCtrl.text, phone: _phoneCtrl.text);
+    widget.onAdd(contact);
+    if (!mounted) return;
+    setState(() { _loading = false; _showSuccess = true; });
+    await Future.delayed(Duration(milliseconds: 1500));
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context) => Stack(children: [Dialog(backgroundColor: kBgCard, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), child: Container(padding: EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Add Contact', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)), SizedBox(height: 28), TextField(controller: _nameCtrl, enabled: !_loading, style: TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Name', hintStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white.withOpacity(0.08), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))), SizedBox(height: 18), TextField(controller: _phoneCtrl, enabled: !_loading, keyboardType: TextInputType.phone, style: TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Phone', hintStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white.withOpacity(0.08), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))), SizedBox(height: 28), Row(mainAxisAlignment: MainAxisAlignment.end, children: [TextButton(onPressed: _loading ? null : () => Navigator.pop(context), child: Text('Cancel')), SizedBox(width: 12), ElevatedButton(onPressed: _loading ? null : _add, style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16)), child: _loading ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text('Add', style: TextStyle(fontWeight: FontWeight.bold)))])]))), if (_showSuccess) Positioned.fill(child: Material(color: Colors.black54, child: Center(child: TweenAnimationBuilder(duration: Duration(milliseconds: 400), tween: Tween<double>(begin: 0, end: 1), curve: Curves.elasticOut, builder: (context, double value, child) => Transform.scale(scale: value, child: Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color(0xFF5B7FFF), Color(0xFF4A6FEE)]), boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.5), blurRadius: 40, spreadRadius: 5)]), child: Center(child: Container(width: 60, height: 60, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 12)]), child: Icon(Icons.check, color: kSuccessGreen, size: 42)))))))))]);
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _phoneCtrl.dispose(); super.dispose(); }
 }

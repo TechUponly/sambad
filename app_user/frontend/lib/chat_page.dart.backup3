@@ -88,20 +88,15 @@ class _ChatPageState extends State<ChatPage> {
   void _send() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
-    
-    // Clear immediately
-    setState(() {
-      _ctrl.clear();
-    });
-    
     final svc = context.read<ChatService>();
     svc.userActive();
     await svc.sendMessage(
       _contactId,
       'me',
       text,
-      private: widget.isPrivate,
+      private: widget.isPrivate, // was: private: false
     );
+    _ctrl.clear();
     Future.delayed(const Duration(milliseconds: 700), () async {
       if (!mounted) return;
       final reply = _generateBotReply(text);
@@ -219,8 +214,7 @@ class _ChatPageState extends State<ChatPage> {
                         },
                       ),
                     ),
-                    Container(
-                      color: const Color(0xFF181A20),
+                    Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 12,
@@ -288,7 +282,6 @@ class _ChatPageState extends State<ChatPage> {
                                   fontSize: 16,
                                 ),
                                 decoration: InputDecoration(
-                                  filled: false,
                                   hintText: 'Type a message',
                                   hintStyle: const TextStyle(
                                     color: Colors.white54,

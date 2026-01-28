@@ -1,0 +1,55 @@
+import 'package:flutter/material.dart';
+import 'models/contact.dart';
+
+const Color kPrimaryBlue = Color(0xFF5B7FFF);
+const Color kBgCard = Color(0xFF23272F);
+const Color kSuccessGreen = Color(0xFF00C853);
+
+class AddContactDialog extends StatefulWidget {
+  final Function(Contact) onAdd;
+  const AddContactDialog({super.key, required this.onAdd});
+  @override
+  State<AddContactDialog> createState() => _AddContactDialogState();
+}
+
+class _AddContactDialogState extends State<AddContactDialog> {
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _add() async {
+    if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty) return;
+    setState(() => _loading = true);
+    await Future.delayed(Duration(milliseconds: 500));
+    widget.onAdd(Contact(id: DateTime.now().toString(), name: _nameCtrl.text, phone: _phoneCtrl.text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✓ Added!'), backgroundColor: kSuccessGreen));
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: kBgCard,
+    child: Container(
+      padding: EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Add Contact', style: TextStyle(color: Colors.white, fontSize: 26)),
+          SizedBox(height: 28),
+          TextField(controller: _nameCtrl, enabled: !_loading, style: TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Name', filled: true, fillColor: Colors.white.withOpacity(0.08))),
+          SizedBox(height: 18),
+          TextField(controller: _phoneCtrl, enabled: !_loading, style: TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Phone', filled: true, fillColor: Colors.white.withOpacity(0.08))),
+          SizedBox(height: 28),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: _loading ? null : () => Navigator.pop(context), child: Text('Cancel')),
+              ElevatedButton(onPressed: _loading ? null : _add, style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue), child: _loading ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text('Add')),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
