@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
-import 'package:provider/provider.dart';
-import '../home_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'privacy_policy_page.dart';
 import 'terms_page.dart';
-import '../services/chat_service.dart';
+import '../home_page.dart';
 
 const Color kPrimaryBlue = Color(0xFF5B7FFF);
 
@@ -23,47 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _continue() async {
     if (_phoneController.text.isEmpty) return;
     setState(() => _isLoading = true);
-    
-    // Simulate login
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Request contacts permission and sync
-    await _requestContactsAndSync();
-    
-    if (mounted) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
-    }
-  }
-  
-  Future<void> _requestContactsAndSync() async {
-    try {
-      final status = await Permission.contacts.request();
-      
-      if (status.isGranted) {
-        // Fetch contacts from phone
-        final contacts = await FlutterContacts.getContacts(withProperties: true);
-        
-        // Add to chat service
-        if (mounted) {
-          final chatService = context.read<ChatService>();
-          for (var contact in contacts) {
-            if (contact.phones.isNotEmpty) {
-              chatService.addContactLocally(
-                id: contact.id,
-                name: contact.displayName,
-                phone: contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
-              );
-            }
-          }
-        }
-        
-        print('✅ Synced ${contacts.length} contacts');
-      } else {
-        print('⚠️ Contacts permission denied');
-      }
-    } catch (e) {
-      print('❌ Error syncing contacts: $e');
-    }
+    await Future.delayed(const Duration(seconds: 1));
+    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
   }
 
   @override

@@ -535,17 +535,6 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  // Add contact locally (for bulk import from phone)
-  Future<void> addContactLocally({required String id, required String name, required String phone}) async {
-    final contact = Contact(id: id, name: name, phone: phone);
-    if (!_contacts.any((c) => c.phone == phone)) {
-      _contacts.add(contact);
-      await _saveContacts();
-      notifyListeners();
-      print('[ChatService] Adding contact: $contact');
-    }
-  }
-
   Future<void> addContact(Contact contact) async {
     // Also add contact via API
     try {

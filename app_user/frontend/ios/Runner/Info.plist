@@ -45,5 +45,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSContactsUsageDescription</key>
+	<string>Sambad is an end-to-end encrypted messaging app. Auto-sync helps you connect and invite friends to chat securely.</string>
 </dict>
 </plist>
