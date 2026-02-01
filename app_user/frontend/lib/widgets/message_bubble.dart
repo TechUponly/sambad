@@ -16,10 +16,14 @@ class MessageBubble extends StatelessWidget {
   Widget _buildStatusIcon() {
     if (!isMe) return const SizedBox.shrink();
     switch (message.status) {
-      case 'sent': return const Icon(Icons.check, size: 14, color: Colors.white70);
-      case 'delivered': return const Icon(Icons.done_all, size: 14, color: Colors.white70);
-      case 'read': return const Icon(Icons.done_all, size: 14, color: Color(0xFF00C853));
-      default: return const Icon(Icons.schedule, size: 14, color: Colors.white54);
+      case 'sent':
+        return const Icon(Icons.check, size: 14, color: Colors.white70);
+      case 'delivered':
+        return const Icon(Icons.done_all, size: 14, color: Colors.white70);
+      case 'read':
+        return const Icon(Icons.done_all, size: 14, color: Color(0xFF00C853));
+      default:
+        return const Icon(Icons.schedule, size: 14, color: Colors.white54);
     }
   }
 

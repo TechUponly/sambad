@@ -106,12 +106,6 @@ class _ChatPageState extends State<ChatPage> {
     _scrollToBottom();
   }
 
-    if (message.toLowerCase().contains('hi') ||
-        message.toLowerCase().contains('hello')) {
-      return 'Hi there! How can I help?';
-    }
-    return 'AI reply: ${message.split('').reversed.join()}';
-  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -268,6 +262,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               child: TextField(
                                 controller: _ctrl,
+                                cursorColor: Colors.white,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
