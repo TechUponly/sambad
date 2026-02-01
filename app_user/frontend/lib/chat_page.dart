@@ -102,31 +102,10 @@ class _ChatPageState extends State<ChatPage> {
       text,
       private: widget.isPrivate,
     );
-    Future.delayed(const Duration(milliseconds: 700), () async {
-      if (!mounted) return;
-      final reply = _generateBotReply(text);
-      svc.userActive();
-      await svc.sendMessage(
-        _contactId,
-        'bot',
-        reply,
-        private: widget.isPrivate, // was: private: false
-      );
-      _scrollToBottom();
-    });
+
     _scrollToBottom();
   }
 
-  String _generateBotReply(String message) {
-    if (message.toLowerCase().contains('how') && message.contains('?')) {
-      return 'I am doing well — thanks for asking!';
-    }
-    if (message.toLowerCase().contains('hi') ||
-        message.toLowerCase().contains('hello')) {
-      return 'Hi there! How can I help?';
-    }
-    return 'AI reply: ${message.split('').reversed.join()}';
-  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -283,6 +262,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               child: TextField(
                                 controller: _ctrl,
+                                cursorColor: Colors.white,
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,

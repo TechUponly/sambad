@@ -12,6 +12,21 @@ class MessageBubble extends StatelessWidget {
     return '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+
+  Widget _buildStatusIcon() {
+    if (!isMe) return const SizedBox.shrink();
+    switch (message.status) {
+      case 'sent':
+        return const Icon(Icons.check, size: 14, color: Colors.white70);
+      case 'delivered':
+        return const Icon(Icons.done_all, size: 14, color: Colors.white70);
+      case 'read':
+        return const Icon(Icons.done_all, size: 14, color: Color(0xFF00C853));
+      default:
+        return const Icon(Icons.schedule, size: 14, color: Colors.white54);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(20);
@@ -99,6 +114,10 @@ class MessageBubble extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    _buildStatusIcon(),
+                  ],
                 ],
               ),
             ],
