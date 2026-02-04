@@ -1,7 +1,9 @@
 import 'reflect-metadata';
 import express from 'express';
+import adminRoutes from './admin-routes';
 import cors from 'cors';
 import { AppDataSource } from './db';
+import { initWebSocketServer } from './websocket';
 
 console.log("DEBUG: Starting server, about to initialize DataSource...");
 
@@ -110,7 +112,22 @@ AppDataSource.initialize()
     app.post('/api/messages', async (req, res) => {
       try {
         const messageRepo = AppDataSource.getRepository('Message');
-        const message = messageRepo.create(req.body);
+        const userRepo = AppDataSource.getRepository('User');
+        
+        let toId = req.body.toUserId || req.body.toId;
+        
+        // If toId is not a UUID, try to find user by phone
+        if (toId && toId.length < 30 && !toId.includes('-')) {
+          const toUser = await userRepo.findOne({ where: { phone: toId } });
+          if (toUser) toId = toUser.id;
+        }
+        
+        const message = messageRepo.create({
+          content: req.body.content,
+          fromId: req.body.fromUserId || req.body.fromId,
+          toId: toId,
+          timestamp: new Date()
+        });
         const saved = await messageRepo.save(message);
         res.status(201).json(saved);
       } catch (error) {
@@ -157,11 +174,16 @@ AppDataSource.initialize()
       res.json({ status: 'healthy', database: 'connected' });
     });
 
-    app.listen(4000, () => {
+    app.use('/api/admin', adminRoutes);
+
+    const server = app.listen(4000, () => {
       console.log('Server on port 4000');
+      initWebSocketServer(server);
     });
   })
   .catch((error) => {
     console.error('Database error:', error);
     process.exit(1);
   });
+
+// Import admin routes

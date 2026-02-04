@@ -24,8 +24,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_phoneController.text.isEmpty) return;
     setState(() => _isLoading = true);
     
-    // Simulate login
-    await Future.delayed(const Duration(milliseconds: 800));
+    // Login with API and save user phone
+    if (mounted) {
+      await context.read<ChatService>().loginUser(_phoneController.text.trim());
+    }
     
     // Request contacts permission and sync
     await _requestContactsAndSync();

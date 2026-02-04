@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'models/contact.dart';
 import 'package:provider/provider.dart';
 import 'services/chat_service.dart';
 import 'models/message.dart';
@@ -37,12 +38,14 @@ class _ChatHomePageState extends State<ChatHomePage> {
 class ChatPage extends StatefulWidget {
   final String name;
   final bool isPrivate;
+  final Contact? contact;
   final VoidCallback? onCall;
 
   const ChatPage({
     super.key,
     required this.name,
     this.isPrivate = false,
+    this.contact,
     this.onCall,
   });
 
@@ -82,7 +85,7 @@ class _ChatPageState extends State<ChatPage> {
   final _scroll = ScrollController();
 
   String get _contactId => widget.isPrivate
-      ? context.read<ChatService>().privateConversationId
+      ? (widget.contact?.phone ?? context.read<ChatService>().privateConversationId)
       : context.read<ChatService>().groupIdForName(widget.name);
 
   void _send() async {

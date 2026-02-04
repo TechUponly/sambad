@@ -153,7 +153,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
             const SizedBox(height: 16),
-            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; final unread = index % 4 == 0; return Container(margin: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12), border: unread ? const Border(left: BorderSide(color: kPrimaryBlue, width: 2)) : null), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true))); }, unreadCount: unread ? 2 : 0)); })),
+            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; final unread = index % 4 == 0; return Container(margin: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12), border: unread ? const Border(left: BorderSide(color: kPrimaryBlue, width: 2)) : null), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: unread ? 2 : 0)); })),
           ],
         );
       },

@@ -97,6 +97,34 @@ class ChatService extends ChangeNotifier {
   final String _messagesKey = 'chat_messages_v1';
   final String _privateKeyPref = 'private_key_v1';
   final String privateConversationId = 'private';
+
+  String? _currentUserPhone;
+  String? _currentUserId;
+  
+  Future<void> loginUser(String phone) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:4000/api/users/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone}),
+      );
+      
+      if (response.statusCode == 200) {
+        final userData = jsonDecode(response.body);
+        _currentUserPhone = phone;
+        _currentUserId = userData['id'];
+        
+        // Save to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('current_user_phone', phone);
+        await prefs.setString('current_user_id', userData['id']);
+        
+        debugPrint('[ChatService] Logged in as: $phone (${userData['id']})');
+      }
+    } catch (e) {
+      debugPrint('[ChatService] Login error: $e');
+    }
+  }
   final int _privateTtlMs = 30 * 60 * 1000; // 30 minutes
   final String _privateSessionKey = 'private_session_last_v1';
   final String _groupsKey = 'chat_groups_v1';
@@ -380,14 +408,14 @@ class ChatService extends ChangeNotifier {
           Uri.parse('http://10.0.2.2:4000/api/users/login'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'mobileNumber': '9999999999',
+            'mobileNumber': _currentUserPhone ?? '9999999999',
             'countryCode': '+91',
           }),
         );
         
         if (currentUserResponse.statusCode == 200) {
           final currentUserData = jsonDecode(currentUserResponse.body);
-          currentUserId = currentUserData['user']?['id'];
+          currentUserId = currentUserData['id'];
           await prefs.setString('current_user_id', currentUserId!);
         }
       }
@@ -399,8 +427,11 @@ class ChatService extends ChangeNotifier {
           orElse: () => Contact(id: contactId, name: '', phone: ''),
         );
         
-        // Try to get contact user ID from API or use contactId if it's a UUID
-        String? contactUserId = contactId.length > 20 ? contactId : null;
+        // Try to find the contact to get their phone number
+        final targetContact = _contacts.firstWhere(
+          (c) => c.id == contactId,
+          orElse: () => Contact(id: contactId, name: '', phone: contactId),
+        );
         
         // Send message via API for WebSocket sync
         final messageResponse = await http.post(
@@ -408,7 +439,7 @@ class ChatService extends ChangeNotifier {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'fromUserId': currentUserId,
-            'toUserId': contactUserId ?? contactId, // Use contactId if UUID not found
+            'toUserId': targetContact.phone, // Send phone number, backend will look up UUID
             'content': text, // Send plain text to backend (encryption is local only)
             'type': 'text',
           }),
@@ -572,14 +603,14 @@ class ChatService extends ChangeNotifier {
             Uri.parse('http://10.0.2.2:4000/api/users/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'mobileNumber': '9999999999',
+              'mobileNumber': _currentUserPhone ?? '9999999999',
               'countryCode': '+91',
             }),
           );
           
           if (currentUserResponse.statusCode == 200) {
             final currentUserData = jsonDecode(currentUserResponse.body);
-            currentUserId = currentUserData['user']?['id'];
+            currentUserId = currentUserData['id'];
             await prefs.setString('current_user_id', currentUserId!);
             
             // Add contact via API
