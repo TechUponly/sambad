@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   crypto: ^3.0.3
-  fl_chart: ^1.1.1
+  fl_chart: ^0.68.0
   image_picker: ^1.2.1
   graphql_flutter: ^5.1.0
   http: ^1.1.0

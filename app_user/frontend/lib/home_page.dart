@@ -86,7 +86,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             focusNode: _searchFocus,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Search chats...',
+              hintText: 'Search contacts...',
               hintStyle: const TextStyle(color: Colors.white54),
               filled: true,
               fillColor: Colors.white10,
@@ -236,7 +236,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             children: [
               _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', 8),
               _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'Groups', 0),
-              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'AI Notes', 0),
+              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'Coming Soon', 0),
               _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings', 0),
             ],
           ),

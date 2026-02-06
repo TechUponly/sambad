@@ -7,7 +7,7 @@ import 'package:dio/dio.dart';
 /// (Migration: 2025-12-31)
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:5050'; // Local admin backend for real data
+  static const String baseUrl = 'http://localhost:4000/api/admin'; // Local admin backend for real data
   final Dio _dio = Dio();
 
   Future<Map<String, dynamic>> fetchDashboardAnalytics() async {

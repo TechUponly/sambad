@@ -1,6 +1,6 @@
 {
   "name": "sambad-user-backend",
-  "version": "1.0.0",
+  "version": "4.0.7",
   "main": "src/index.ts",
   "scripts": {
     "start": "ts-node --transpile-only --project tsconfig.json src/index.ts",

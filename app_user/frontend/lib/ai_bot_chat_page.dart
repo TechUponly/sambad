@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+const Color _kPrimaryBlue = Color(0xFF5B7FFF);
+const Color _kBgDark = Color(0xFF181A20);
+const Color _kBgCard = Color(0xFF23272F);
+
 class AIBotChatPage extends StatefulWidget {
   const AIBotChatPage({super.key});
 
@@ -54,18 +58,18 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
     // ...AppBar and Scaffold setup unchanged...
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: _kBgCard,
         elevation: 0,
         title: Row(
           children: const [
             CircleAvatar(
               radius: 22,
               backgroundColor: Colors.white,
-              child: Icon(Icons.smart_toy, color: Colors.deepPurple),
+              child: Icon(Icons.smart_toy, color: _kPrimaryBlue),
             ),
             SizedBox(width: 12),
             Text(
-              'AI Bot',
+              'Coming Soon',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -74,17 +78,16 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
           ],
         ),
       ),
-      backgroundColor: const Color(0xFF181A20),
+      backgroundColor: _kBgDark,
       body: Column(
         children: [
-          // REVERT: remove group selector, keep only chat list
           Expanded(
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF181A20), Color(0xFF23272F)],
+                  colors: [_kBgDark, _kBgCard],
                 ),
               ),
               child: ListView.builder(
@@ -105,7 +108,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                           backgroundColor: Colors.white,
                           child: Icon(
                             Icons.smart_toy,
-                            color: Colors.deepPurple,
+                            color: _kPrimaryBlue,
                             size: 18,
                           ),
                         ),
@@ -118,7 +121,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: isMe ? Colors.deepPurple : Colors.white10,
+                            color: isMe ? _kPrimaryBlue : Colors.white10,
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(18),
                               topRight: const Radius.circular(18),
@@ -146,7 +149,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                       if (isMe)
                         CircleAvatar(
                           radius: 16,
-                          backgroundColor: Colors.deepPurple,
+                          backgroundColor: _kPrimaryBlue,
                           child: const Icon(
                             Icons.person,
                             color: Colors.white,
@@ -163,7 +166,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: const BoxDecoration(
-              color: Color(0xFF23272F),
+              color: _kBgCard,
               border: Border(
                 top: BorderSide(color: Colors.white10),
               ),
@@ -176,7 +179,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                       controller: _controller,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Ask the AI bot... ',
+                        hintText: 'Coming soon',
                         hintStyle: const TextStyle(color: Colors.white54),
                         filled: true,
                         fillColor: Colors.white10,
@@ -195,7 +198,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.deepPurple,
+                      color: _kPrimaryBlue,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: IconButton(
