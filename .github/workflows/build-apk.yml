@@ -25,20 +25,20 @@ jobs:
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          flutter-version: '3.24.0'
           channel: 'stable'
       
       - name: 📦 Get dependencies
-        working-directory: ./flutter
+        working-directory: ./my_first_flutter_app
         run: flutter pub get
       
       - name: 🔨 Build APK
-        working-directory: ./flutter
+        working-directory: ./my_first_flutter_app
         run: flutter build apk --release
       
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: sambad-app-${{ github.run_number }}
-          path: flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: my_first_flutter_app/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 90
