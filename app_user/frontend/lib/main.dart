@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Sambad',
+      title: 'Private Sambad',
       theme: AppTheme.intuitiveTheme,
       home: const LoginScreen(),
     );
