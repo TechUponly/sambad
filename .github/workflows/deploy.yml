@@ -1,0 +1,28 @@
+name: Deploy Sambad Backend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: |
+            cd /var/www/html/public_html/sambad
+            git pull origin main
+            cd app_user/backend
+            npm install
+            pm2 restart sambad-backend
+            pm2 save
+            echo "✅ Sambad deployed successfully!"
