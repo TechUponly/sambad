@@ -3,7 +3,8 @@ import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
 
-const USER_BACKEND = 'http://localhost:4000/api';
+// Production backend URL
+const USER_BACKEND = 'https://web.uponlytech.com/sambad-backend/api';
 
 const app = express();
 app.use(cors());
