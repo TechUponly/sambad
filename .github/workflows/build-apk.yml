@@ -1,44 +1,45 @@
-name: Build Flutter APK
-
+name: Build Flutter AAB & APK
 on:
   push:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
-
 jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
-    
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-      
       - name: ☕ Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-      
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 'any'
           channel: 'stable'
-      
       - name: 📦 Get dependencies
         working-directory: ./app_user/frontend
         run: flutter pub get
-      
-      - name: 🔨 Build APK
+      - name: 🔨 Build APK (for testing)
         working-directory: ./app_user/frontend
         run: flutter build apk --release
-      
+      - name: 🔨 Build AAB (for Play Store)
+        working-directory: ./app_user/frontend
+        run: flutter build appbundle --release
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: sambad-app-${{ github.run_number }}
           path: app_user/frontend/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 90
+      - name: 📤 Upload AAB (Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sambad-playstore-${{ github.run_number }}
+          path: app_user/frontend/build/app/outputs/bundle/release/app-release.aab
           retention-days: 90
