@@ -22,6 +22,9 @@ jobs:
         with:
           flutter-version: 'any'
           channel: 'stable'
+      - name: 🧹 Clean Flutter
+        working-directory: ./app_user/frontend
+        run: flutter clean
       - name: 📦 Get dependencies
         working-directory: ./app_user/frontend
         run: flutter pub get
