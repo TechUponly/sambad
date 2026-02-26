@@ -1,6 +1,6 @@
 {
   "name": "sambad-user-backend",
-  "version": "4.0.7",
+  "version": "4.0.8",
   "main": "src/index.ts",
   "scripts": {
     "start": "ts-node --transpile-only --project tsconfig.json src/index.ts",
@@ -18,6 +18,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
+    "firebase-admin": "^12.0.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.11.1",
     "reflect-metadata": "^0.1.13",
