@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1046904512204",
+    "project_id": "private-sambad",
+    "storage_bucket": "private-sambad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1046904512204:android:646b302f9a7520f112ac69",
+        "android_client_info": {
+          "package_name": "com.example.my_first_flutter_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7d8mR41AEaMWpQ308YujKZD2HHWGy89o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
