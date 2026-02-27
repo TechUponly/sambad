@@ -18,9 +18,19 @@ jobs:
           script: |
             cd /var/www/html/public_html/sambad
             git pull origin main
-            cd app_user/backend
+
+            # Deploy user backend
+            echo "🚀 Deploying user backend..."
+            cd /var/www/html/public_html/sambad/app_user/backend
             npm install
             npm run build
             pm2 restart sambad-backend
+
+            # Deploy admin backend
+            echo "🚀 Deploying admin backend..."
+            cd /var/www/html/public_html/sambad/sambad_admin/backend
+            npm install
+            pm2 restart sambad-admin-backend
+
             pm2 save
-            echo "✅ Sambad deployed successfully!"
+            echo "✅ All backends deployed successfully!"
