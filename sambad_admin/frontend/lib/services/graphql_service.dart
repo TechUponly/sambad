@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 class GraphQLService {
   static final HttpLink httpLink = HttpLink(
-    'http://localhost:4000/graphql', // Update if deployed elsewhere
+    'https://web.uponlytech.com/sambad-admin-backend/graphql',
   );
 
   static ValueNotifier<GraphQLClient> initClient() {
