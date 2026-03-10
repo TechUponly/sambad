@@ -12,7 +12,6 @@ dependencies:
   crypto: ^3.0.3
   fl_chart: ^0.68.0
   image_picker: ^1.2.1
-  graphql_flutter: ^5.1.0
   http: ^1.1.0
   flutter_typeahead: ^5.2.0
   dio: ^5.0.0
