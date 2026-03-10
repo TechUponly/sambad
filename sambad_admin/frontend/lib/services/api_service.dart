@@ -1,13 +1,7 @@
-
-import 'dart:convert';
 import 'package:dio/dio.dart';
 
-/// NOTE: Migrated from `http` to `dio` for advanced networking, scalability, and performance.
-/// For apps with 1B+ users, dio is preferred for robust error handling, interceptors, and flexibility.
-/// (Migration: 2025-12-31)
-
 class ApiService {
-  static const String baseUrl = 'http://localhost:4000/api/admin'; // Local admin backend for real data
+  static const String baseUrl = 'https://web.uponlytech.com/sambad-admin-backend';
   final Dio _dio = Dio();
 
   Future<Map<String, dynamic>> fetchDashboardAnalytics() async {
