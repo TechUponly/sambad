@@ -1,22 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/login_screen.dart';
-import 'services/graphql_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initHiveForFlutter();
-  runApp(GraphQLProvider(
-    client: GraphQLService.initClient(),
-    child: const SambadAdminApp(),
-  ));
+  runApp(const SambadAdminApp());
 }
-
 
 class SambadAdminApp extends StatefulWidget {
   const SambadAdminApp({super.key});
-
   @override
   State<SambadAdminApp> createState() => _SambadAdminAppState();
 }
@@ -24,12 +16,12 @@ class SambadAdminApp extends StatefulWidget {
 class _SambadAdminAppState extends State<SambadAdminApp> {
   @override
   Widget build(BuildContext context) {
-    // Sky blue palette
-    final skyBlue = const Color(0xFF4FC3F7); // Main sky blue
-    final skyBlueDark = const Color(0xFF0288D1); // For sidebar, appbar
-    final skyBlueLight = const Color(0xFFE1F5FE); // For backgrounds
-    final accentBlue = const Color(0xFF039BE5); // For highlights
+    final skyBlue = const Color(0xFF4FC3F7);
+    final skyBlueDark = const Color(0xFF0288D1);
+    final skyBlueLight = const Color(0xFFE1F5FE);
+    final accentBlue = const Color(0xFF039BE5);
     final errorRed = const Color(0xFFFF5252);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Sambad Admin',
