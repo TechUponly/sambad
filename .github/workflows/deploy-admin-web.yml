@@ -37,18 +37,4 @@ jobs:
           source: "sambad_admin/frontend/build/web/*"
           target: "/var/www/html/public_html/sambad/sambad_admin/frontend/build/web/"
           strip_components: 4
-```
 
-Commit! ✅
-
----
-
-## Then run workflow:
-
-**GitHub → Actions → Deploy Admin Web → Run workflow** ✅
-
----
-
-## After success — sir gets URL:
-```
-https://web.uponlytech.com/sambad-admin/
