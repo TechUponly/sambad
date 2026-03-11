@@ -7,9 +7,6 @@ on:
       - 'sambad_admin/frontend/**'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -29,10 +26,29 @@ jobs:
 
       - name: Build Flutter Web
         working-directory: ./sambad_admin/frontend
-        run: flutter build web --release --base-href /sambad/
+        run: flutter build web --release --base-href /sambad-admin/
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy to Azure VM
+        uses: appleboy/scp-action@v0.1.7
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./sambad_admin/frontend/build/web
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "sambad_admin/frontend/build/web/*"
+          target: "/var/www/html/public_html/sambad/sambad_admin/frontend/build/web/"
+          strip_components: 4
+```
+
+Commit! ✅
+
+---
+
+## Then run workflow:
+
+**GitHub → Actions → Deploy Admin Web → Run workflow** ✅
+
+---
+
+## After success — sir gets URL:
+```
+https://web.uponlytech.com/sambad-admin/
