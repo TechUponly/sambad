@@ -124,17 +124,34 @@ app.get('/activity', async (req, res) => {
 app.get('/users', async (req, res) => {
   try {
     const usersRes = await axios.get(`${USER_BACKEND}/users`);
-    res.json(usersRes.data);
+    const rawUsers = usersRes.data;
+    
+    const transformedUsers = rawUsers.map((user: any) => ({
+      id: user.id,
+      phone: user.phone,
+      name: user.name || user.phone || 'Unknown User',
+      email: user.email || 'Not provided',
+      location: 'Not available',
+      persona: 'Not calculated',
+      active: user.status === 'active',
+      joined: user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) : 'Unknown',
+      status: user.status,
+      created_at: user.created_at,
+      last_active_at: user.last_active_at,
+    }));
+    
+    res.json(transformedUsers);
   } catch (e) {
     const err = e as Error;
     console.error('Users error:', err.message);
-    res.status(500).json({ 
-      error: 'Failed to fetch users', 
-      details: err.message 
-    });
+    res.status(500).json({ error: 'Failed to fetch users', details: err.message });
   }
 });
-
+});
 app.get('/messages', async (req, res) => {
   try {
     const messagesRes = await axios.get(`${USER_BACKEND}/messages`);

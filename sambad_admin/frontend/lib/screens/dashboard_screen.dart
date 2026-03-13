@@ -7,6 +7,7 @@ import 'settings_screen.dart';
 import 'config_screen.dart';
 import 'rights_screen.dart';
 import 'audit_screen.dart';
+import 'analytics_screen.dart';
 import 'logout_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
@@ -56,7 +57,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         return _DashboardContent();
       case 1:
         return _UsersContent();
-      case 2:
+        return AnalyticsScreen();
         return Center(child: Text('Analytics Page', style: Theme.of(context).textTheme.headlineMedium));
       case 3:
         return ProfileScreen();
@@ -405,7 +406,7 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                               children: [
                                 CircleAvatar(
                                   radius: 28,
-                                  backgroundColor: user['active'] ? theme.colorScheme.primary : Colors.grey[400],
+                                  backgroundColor: (user['active'] ?? false) ? theme.colorScheme.primary : Colors.grey[400],
                                   child: Icon(Icons.person, color: Colors.white, size: 32),
                                 ),
                                 const SizedBox(width: 18),
@@ -413,8 +414,8 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(user['name'], style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                                      Text(user['location'], style: theme.textTheme.bodySmall),
+                                      Text((user['name'] ?? 'Unknown'), style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                      Text((user['location'] ?? 'Not available'), style: theme.textTheme.bodySmall),
                                     ],
                                   ),
                                 ),
@@ -431,7 +432,7 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                   const SizedBox(width: 8),
                                   Text('Persona:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                                   const SizedBox(width: 6),
-                                  Text(user['persona'], style: theme.textTheme.bodyMedium),
+                                  Text((user['persona'] ?? 'Not calculated'), style: theme.textTheme.bodyMedium),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -441,7 +442,7 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                   const SizedBox(width: 8),
                                   Text('Email:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                                   const SizedBox(width: 6),
-                                  Text(user['email'], style: theme.textTheme.bodyMedium),
+                                  Text((user['email'] ?? 'Not provided'), style: theme.textTheme.bodyMedium),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -451,26 +452,26 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                   const SizedBox(width: 8),
                                   Text('Joined:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                                   const SizedBox(width: 6),
-                                  Text(user['joined'], style: theme.textTheme.bodyMedium),
+                                  Text((user['joined'] ?? 'Unknown'), style: theme.textTheme.bodyMedium),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  Icon(Icons.verified_user, color: user['active'] ? Colors.teal : Colors.redAccent),
+                                  Icon(Icons.verified_user, color: (user['active'] ?? false) ? Colors.teal : Colors.redAccent),
                                   const SizedBox(width: 8),
                                   Text('Account Status:', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: user['active'] ? Colors.green[100] : Colors.red[100],
+                                      color: (user['active'] ?? false) ? Colors.green[100] : Colors.red[100],
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      user['active'] ? 'Active' : 'Inactive',
+                                      (user['active'] ?? false) ? 'Active' : 'Inactive',
                                       style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: user['active'] ? Colors.green[800] : Colors.red[700],
+                                        color: (user['active'] ?? false) ? Colors.green[800] : Colors.red[700],
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -516,12 +517,12 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                           Icon(Icons.timeline, color: Colors.blueAccent, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Activity Score: ', style: theme.textTheme.bodySmall),
-                                          Text('${(user['active'] ? 87 : 42)}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          Text('${((user['active'] ?? false) ? 87 : 42)}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 18),
                                           Icon(Icons.group, color: Colors.green, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Connections: ', style: theme.textTheme.bodySmall),
-                                          Text('${user['active'] ? 24 : 7}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          Text('${(user['active'] ?? false) ? 24 : 7}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
@@ -530,18 +531,18 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                           Icon(Icons.chat_bubble, color: Colors.deepPurple, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Chats: ', style: theme.textTheme.bodySmall),
-                                          Text('${user['active'] ? 132 : 12}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          Text('${(user['active'] ?? false) ? 132 : 12}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 18),
                                           Icon(Icons.location_on, color: Colors.redAccent, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Last Location: ', style: theme.textTheme.bodySmall),
-                                          Text(user['location'], style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          Text((user['location'] ?? 'Not available'), style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                       const SizedBox(height: 10),
-                                      Text('Persona Type: ${user['persona']}', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                                      Text('Persona Type: ${(user['persona'] ?? 'Not calculated')}', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                                       const SizedBox(height: 4),
-                                      Text(personaDescription(user['persona']), style: theme.textTheme.bodySmall),
+                                      Text(personaDescription((user['persona'] ?? 'Not calculated')), style: theme.textTheme.bodySmall),
                                     ],
                                   ),
                                 ),
