@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -13,18 +14,32 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
-  );
-  
   try {
-    await ScreenProtector.preventScreenshotOn();
-    await ScreenProtector.protectDataLeakageOn();
-  } catch (_) {}
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    print('Firebase initialization error: $e');
+  }
+
+  // Disable App Check temporarily to prevent crashes
+  // if (!kIsWeb) {
+  //   try {
+  //     await FirebaseAppCheck.instance.activate(
+  //       androidProvider: AndroidProvider.debug,
+  //     );
+  //   } catch (e) {
+  //     print('App Check activation failed: $e');
+  //   }
+  // }
+  
+  // Screen protector only works on mobile
+  if (!kIsWeb) {
+    try {
+      await ScreenProtector.preventScreenshotOn();
+      await ScreenProtector.protectDataLeakageOn();
+    } catch (_) {}
+  }
   
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.containsKey('firebase_token') && 
@@ -50,7 +65,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sambad',
+      title: 'Private Sambad',
       theme: AppTheme.intuitiveTheme,
       home: isLoggedIn ? const HomePage() : const LoginScreen(),
       debugShowCheckedModeBanner: false,

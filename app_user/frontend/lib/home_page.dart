@@ -222,7 +222,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildSettingsTab() {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: const [ Icon(Icons.settings, size: 64, color: Colors.white54), SizedBox(height: 16), Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), SizedBox(height: 8), Text('Coming soon', style: TextStyle(color: Colors.white60)), ]));
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.settings, size: 80, color: Colors.white54),
+          const SizedBox(height: 20),
+          const Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
   }
 
   Widget _buildBottomNav() {

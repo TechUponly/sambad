@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:country_code_picker/country_code_picker.dart';
@@ -7,6 +9,7 @@ import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../home_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_page.dart';
@@ -22,43 +25,161 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
+  final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
   bool _codeSent = false;
   String _verificationId = '';
   String _countryCode = '+91';
+  Timer? _resendTimer;
+  int _resendSeconds = 60;
+  bool _canResend = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    for (var controller in _otpControllers) {
+      controller.dispose();
+    }
+    for (var node in _otpFocusNodes) {
+      node.dispose();
+    }
+    _resendTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startResendTimer() {
+    _canResend = false;
+    _resendSeconds = 60;
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_resendSeconds > 0) {
+          _resendSeconds--;
+        } else {
+          _canResend = true;
+          timer.cancel();
+        }
+      });
+    });
+  }
 
   Future<void> _sendOTP() async {
     final phone = _countryCode + _phoneController.text.trim();
     if (_phoneController.text.isEmpty) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: phone,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        await _saveAndNavigate();
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
+    try {
+      // For web, we need to handle reCAPTCHA differently
+      if (kIsWeb) {
+        // Web phone auth with reCAPTCHA
+        final confirmationResult = await FirebaseAuth.instance.signInWithPhoneNumber(
+          phone,
         );
-      },
-      codeSent: (String verificationId, int? resendToken) {
+        
         setState(() {
           _isLoading = false;
           _codeSent = true;
-          _verificationId = verificationId;
+          _verificationId = confirmationResult.verificationId;
         });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+        _startResendTimer();
+        // Auto-focus first OTP field
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _otpFocusNodes[0].requestFocus();
+        });
+      } else {
+        // Mobile phone auth
+        await FirebaseAuth.instance.verifyPhoneNumber(
+          phoneNumber: phone,
+          verificationCompleted: (PhoneAuthCredential credential) async {
+            await FirebaseAuth.instance.signInWithCredential(credential);
+            await _saveAndNavigate();
+          },
+          verificationFailed: (FirebaseAuthException e) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = e.message ?? 'Verification failed';
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
+            );
+          },
+          codeSent: (String verificationId, int? resendToken) {
+            setState(() {
+              _isLoading = false;
+              _codeSent = true;
+              _verificationId = verificationId;
+            });
+            _startResendTimer();
+            // Auto-focus first OTP field
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted) _otpFocusNodes[0].requestFocus();
+            });
+          },
+          codeAutoRetrievalTimeout: (String verificationId) {
+            _verificationId = verificationId;
+          },
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _onOtpChanged(int index, String value) {
+    if (value.length == 1 && index < 5) {
+      // Move to next field immediately
+      _otpFocusNodes[index + 1].requestFocus();
+    } else if (value.isEmpty && index > 0) {
+      // Move to previous field on backspace
+      _otpFocusNodes[index - 1].requestFocus();
+    }
+    
+    // Check if all fields are filled and auto-submit immediately
+    final otp = _otpControllers.map((c) => c.text).join();
+    if (otp.length == 6) {
+      // Unfocus to hide keyboard
+      FocusScope.of(context).unfocus();
+      // Verify immediately without delay
+      _verifyOTP(otp);
+    }
+  }
+
+  Future<void> _pasteOtp() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null) {
+      final text = data!.text!.replaceAll(RegExp(r'[^0-9]'), '');
+      if (text.length >= 6) {
+        // Fill all fields
+        for (int i = 0; i < 6; i++) {
+          _otpControllers[i].text = text[i];
+        }
+        // Unfocus keyboard
+        FocusScope.of(context).unfocus();
+        // Verify immediately
+        _verifyOTP(text.substring(0, 6));
+      }
+    }
   }
 
   Future<void> _verifyOTP(String otp) async {
-    setState(() => _isLoading = true);
+    if (otp.length != 6) return;
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
     try {
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId,
@@ -67,9 +188,22 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
       await _saveAndNavigate();
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Invalid OTP. Please try again.';
+      });
+      // Clear OTP fields
+      for (var controller in _otpControllers) {
+        controller.clear();
+      }
+      _otpFocusNodes[0].requestFocus();
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid OTP. Please try again.'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Invalid OTP. Please try again.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
       );
     }
   }
@@ -186,22 +320,100 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 8),
                       Text('Sent to $_countryCode${_phoneController.text}', style: const TextStyle(color: Colors.white60)),
                       const SizedBox(height: 24),
-                      OtpTextField(
-                        numberOfFields: 6,
-                        borderColor: kPrimaryBlue,
-                        focusedBorderColor: kPrimaryBlue,
-                        fieldWidth: 45,
-                        textStyle: const TextStyle(color: Colors.white, fontSize: 18),
-                        showFieldAsBox: true,
-                        onSubmit: (otp) => _verifyOTP(otp),
+                      
+                      // Smart OTP Input Fields
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(6, (index) {
+                          return SizedBox(
+                            width: 45,
+                            height: 56,
+                            child: TextField(
+                              controller: _otpControllers[index],
+                              focusNode: _otpFocusNodes[index],
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              maxLength: 1,
+                              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                              decoration: InputDecoration(
+                                counterText: '',
+                                filled: true,
+                                fillColor: Colors.white10,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Colors.white24),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: kPrimaryBlue, width: 2),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Colors.white24),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Colors.red, width: 2),
+                                ),
+                              ),
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (value) => _onOtpChanged(index, value),
+                            ),
+                          );
+                        }),
                       ),
-                      const SizedBox(height: 24),
+                      
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red, fontSize: 14),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Paste OTP Button
+                      TextButton.icon(
+                        onPressed: _pasteOtp,
+                        icon: const Icon(Icons.content_paste, size: 18, color: kPrimaryBlue),
+                        label: const Text('Paste OTP', style: TextStyle(color: kPrimaryBlue)),
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
                       if (_isLoading)
-                        const CircularProgressIndicator(color: kPrimaryBlue),
-                      TextButton(
-                        onPressed: () => setState(() => _codeSent = false),
-                        child: const Text('Change number', style: TextStyle(color: kPrimaryBlue)),
-                      ),
+                        const CircularProgressIndicator(color: kPrimaryBlue)
+                      else ...[
+                        // Resend OTP
+                        if (_canResend)
+                          TextButton(
+                            onPressed: _sendOTP,
+                            child: const Text('Resend OTP', style: TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.w600)),
+                          )
+                        else
+                          Text(
+                            'Resend OTP in $_resendSeconds seconds',
+                            style: const TextStyle(color: Colors.white54, fontSize: 14),
+                          ),
+                        
+                        const SizedBox(height: 8),
+                        
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _codeSent = false;
+                              _errorMessage = null;
+                              for (var controller in _otpControllers) {
+                                controller.clear();
+                              }
+                            });
+                            _resendTimer?.cancel();
+                          },
+                          child: const Text('Change number', style: TextStyle(color: Colors.white60)),
+                        ),
+                      ],
                     ],
                   ],
                 ),
