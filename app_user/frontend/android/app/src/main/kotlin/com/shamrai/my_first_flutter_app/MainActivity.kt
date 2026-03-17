@@ -1,4 +1,4 @@
-package com.shamrai.my_first_flutter_app
+package com.shamrai.sambad
 
 import io.flutter.embedding.android.FlutterActivity
 
