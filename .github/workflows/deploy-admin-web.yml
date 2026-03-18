@@ -2,7 +2,7 @@ name: Deploy Admin Web
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, shambad1 ]
     paths:
       - 'sambad_admin/frontend/**'
   workflow_dispatch:
