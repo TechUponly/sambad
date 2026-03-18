@@ -89,7 +89,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Welcome Admin', style: TextStyle(color: Colors.deepPurpleAccent, fontSize: 28, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  const Text('Welcome Admin v3', style: TextStyle(color: Colors.deepPurpleAccent, fontSize: 28, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   const SizedBox(height: 24),
                   TextField(
                     controller: _usernameController,
