@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:country_code_picker/country_code_picker.dart';
-import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
+// ...existing code...
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:provider/provider.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
+// ...existing code...
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'services/chat_service.dart';

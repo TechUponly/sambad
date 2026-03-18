@@ -141,7 +141,6 @@ app.get('/users', async (req, res) => {
       }) : 'Unknown',
       status: user.status,
       created_at: user.created_at,
-      last_active_at: user.last_active_at,
     }));
     
     res.json(transformedUsers);
@@ -150,7 +149,6 @@ app.get('/users', async (req, res) => {
     console.error('Users error:', err.message);
     res.status(500).json({ error: 'Failed to fetch users', details: err.message });
   }
-});
 });
 app.get('/messages', async (req, res) => {
   try {

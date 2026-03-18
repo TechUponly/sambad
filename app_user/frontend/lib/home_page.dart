@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'services/chat_service.dart';
-import 'models/contact.dart';
+// ...existing code...
 import 'widgets/contact_tile.dart';
 import 'chat_page.dart';
 import 'ai_bot_chat_page.dart';

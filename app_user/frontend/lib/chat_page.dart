@@ -14,12 +14,7 @@ class ChatHomePage extends StatefulWidget {
   State<ChatHomePage> createState() => _ChatHomePageState();
 }
 
-class _ChatGroupCreateResult {
-  final String name;
-  final List<String> memberIds;
-
-  _ChatGroupCreateResult({required this.name, required this.memberIds});
-}
+// ...existing code...
 
 class _ChatHomePageState extends State<ChatHomePage> {
   // Group creation dialog logic is available for integration when needed.

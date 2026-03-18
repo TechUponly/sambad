@@ -53,7 +53,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final svc = context.read<ChatService>();
     await svc.markPrivateActivity();
     await svc.sendMessage(
-      ChatService.privateConversationId,
+      svc.privateConversationId,
       'me',
       text,
       private: true,
@@ -64,7 +64,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       final reply = _generateBotReply(text);
       await svc.markPrivateActivity();
       await svc.sendMessage(
-        ChatService.privateConversationId,
+        svc.privateConversationId,
         'bot',
         reply,
         private: true,
@@ -100,79 +100,89 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   @override
   Widget build(BuildContext context) {
     final svc = context.watch<ChatService>();
-    final messages = svc.messagesFor(ChatService.privateConversationId);
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            controller: _scroll,
-            padding: const EdgeInsets.all(12),
-            itemCount: messages.length,
-            itemBuilder: (context, i) {
-              final Message m = messages[i];
-              final isMe = m.from == 'me';
-              return MessageBubble(message: m, isMe: isMe);
-            },
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: Colors.black54,
-          child: SafeArea(
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.lock, color: Colors.white),
-                  tooltip: 'Private & encrypted',
-                ),
-                IconButton(
-                  onPressed: () => _startCall(video: false),
-                  icon: const Icon(Icons.call, color: Colors.greenAccent),
-                  tooltip: 'Private call',
-                ),
-                IconButton(
-                  onPressed: () => _startCall(video: true),
-                  icon: const Icon(
-                    Icons.videocam,
-                    color: Colors.lightBlueAccent,
-                  ),
-                  tooltip: 'Private video call',
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _ctrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Type a private message',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      filled: true,
-                      fillColor: Colors.white12,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+    return FutureBuilder<List<Message>>(
+      future: svc.messagesFor(svc.privateConversationId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading messages'));
+        }
+        final messages = snapshot.data ?? [];
+        return Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scroll,
+                padding: const EdgeInsets.all(12),
+                itemCount: messages.length,
+                itemBuilder: (context, i) {
+                  final Message m = messages[i];
+                  final isMe = m.from == 'me';
+                  return MessageBubble(message: m, isMe: isMe);
+                },
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: Colors.black54,
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.lock, color: Colors.white),
+                      tooltip: 'Private & encrypted',
+                    ),
+                    IconButton(
+                      onPressed: () => _startCall(video: false),
+                      icon: const Icon(Icons.call, color: Colors.greenAccent),
+                      tooltip: 'Private call',
+                    ),
+                    IconButton(
+                      onPressed: () => _startCall(video: true),
+                      icon: const Icon(
+                        Icons.videocam,
+                        color: Colors.lightBlueAccent,
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+                      tooltip: 'Private video call',
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _ctrl,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Type a private message',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          filled: true,
+                          fillColor: Colors.white12,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: (_) => _send(),
                       ),
                     ),
-                    onSubmitted: (_) => _send(),
-                  ),
+                    const SizedBox(width: 8),
+                    FloatingActionButton(
+                      heroTag: 'private_send_fab',
+                      onPressed: _send,
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      child: const Icon(Icons.send, color: Colors.black87),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                FloatingActionButton(
-                  heroTag: 'private_send_fab',
-                  onPressed: _send,
-                  mini: true,
-                  backgroundColor: Colors.white,
-                  child: const Icon(Icons.send, color: Colors.black87),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
-  }
-}
+// ...existing code...
