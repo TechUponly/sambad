@@ -28,9 +28,8 @@ app.get('/analytics', async (req, res) => {
       axios.get(`${USER_BACKEND}/users`),
       axios.get(`${USER_BACKEND}/messages`),
     ]);
-    
-    const users = usersRes.data;
-    const messages = messagesRes.data;
+    const users = usersRes.data as any[];
+    const messages = messagesRes.data as any[];
     
     // Calculate date thresholds
     const now = new Date();
@@ -91,13 +90,11 @@ app.get('/activity', async (req, res) => {
       axios.get(`${USER_BACKEND}/messages`),
       axios.get(`${USER_BACKEND}/contacts`),
     ]);
-    
-    const messages = messagesRes.data.slice(0, 10).map((m: any) => ({
+    const messages = (messagesRes.data as any[]).slice(0, 10).map((m: any) => ({
       description: `Message from ${m.from_user?.phone || m.from_user_id} to ${m.to_user?.phone || m.to_user_id}`,
       time: m.created_at,
     }));
-    
-    const contacts = contactsRes.data.slice(0, 5).map((c: any) => ({
+    const contacts = (contactsRes.data as any[]).slice(0, 5).map((c: any) => ({
       description: `Contact added: ${c.name} (${c.phone})`,
       time: c.created_at || new Date().toISOString(),
     }));
@@ -124,8 +121,7 @@ app.get('/activity', async (req, res) => {
 app.get('/users', async (req, res) => {
   try {
     const usersRes = await axios.get(`${USER_BACKEND}/users`);
-    const rawUsers = usersRes.data;
-    
+    const rawUsers = usersRes.data as any[];
     const transformedUsers = rawUsers.map((user: any) => ({
       id: user.id,
       phone: user.phone,
