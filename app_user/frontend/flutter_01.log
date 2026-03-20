@@ -1,0 +1,98 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter run
+
+## exception
+
+FileSystemException: FileSystemException: readInto failed, path = '/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/linux/flutter/generated_plugins.cmake' (OS Error: Operation timed out, errno = 60)
+
+```
+#0      _checkForErrorResponse (dart:io/common.dart:58:9)
+#1      _RandomAccessFile.readInto.<anonymous closure> (dart:io/file_impl.dart:928:7)
+#2      _rootRunUnary (dart:async/zone.dart:1538:47)
+#3      _CustomZone.runUnary (dart:async/zone.dart:1429:19)
+<asynchronous suspension>
+#4      _File.readAsBytes.readSized.read.<anonymous closure> (dart:io/file_impl.dart:629:78)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[32m[✓][39m Flutter (Channel stable, 3.38.5, on macOS 26.3 25D125
+    darwin-arm64, locale en-IN) [337ms]
+    [32m•[39m Flutter version 3.38.5 on channel stable at
+      /opt/homebrew/share/flutter
+    [32m•[39m Upstream repository
+      https://github.com/flutter/flutter.git
+    [32m•[39m Framework revision f6ff1529fd (3 months ago),
+      2025-12-11 11:50:07 -0500
+    [32m•[39m Engine revision 1527ae0ec5
+    [32m•[39m Dart version 3.10.4
+    [32m•[39m DevTools version 2.51.1
+    [32m•[39m Feature flags: enable-web, enable-linux-desktop,
+      enable-macos-desktop, enable-windows-desktop,
+      enable-android, enable-ios, cli-animations,
+      enable-native-assets, omit-legacy-version-file,
+      enable-lldb-debugging
+
+[32m[✓][39m Android toolchain - develop for Android devices
+    (Android SDK version 36.1.0) [3.2s]
+    [32m•[39m Android SDK at /Users/shamrai/Library/Android/sdk
+    [32m•[39m Emulator version 36.3.10.0 (build_id 14472402)
+      (CL:N/A)
+    [32m•[39m Platform android-36, build-tools 36.1.0
+    [32m•[39m Java binary at: /Applications/Android
+      Studio.app/Contents/jbr/Contents/Home/bin/java
+      This is the JDK bundled with the latest Android
+      Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config
+      --jdk-dir="path/to/jdk"`.
+    [32m•[39m Java version OpenJDK Runtime Environment (build
+      21.0.8+-14196175-b1038.72)
+    [32m•[39m All Android licenses accepted.
+
+[32m[✓][39m Xcode - develop for iOS and macOS (Xcode 26.2) [4.1s]
+    [32m•[39m Xcode at /Applications/Xcode.app/Contents/Developer
+    [32m•[39m Build 17C52
+    [32m•[39m CocoaPods version 1.16.2
+
+[32m[✓][39m Chrome - develop for the web [3ms]
+    [32m•[39m Chrome at /Applications/Google
+      Chrome.app/Contents/MacOS/Google Chrome
+
+[32m[✓][39m Connected device (3 available) [8.1s]
+    [32m•[39m sdk gphone64 arm64 (mobile) • emulator-5554 •
+      android-arm64  • Android 16 (API 36) (emulator)
+    [32m•[39m macOS (desktop)             • macos         •
+      darwin-arm64   • macOS 26.3 25D125 darwin-arm64
+    [32m•[39m Chrome (web)                • chrome        •
+      web-javascript • Google Chrome 145.0.7632.162
+    [33m![39m Error: Browsing on the local area network for
+      iPhone. Ensure the device is unlocked and attached
+      with a cable or associated with the same local area
+      network as this Mac.
+      The device must be opted into Developer Mode to
+      connect wirelessly. (code -27)
+
+[33m[!][39m Network resources [60ms]
+    [31m✗[39m A network error occurred while checking
+      "https://pub.dev/": Failed host lookup: 'pub.dev'
+    [31m✗[39m A network error occurred while checking
+      "https://storage.googleapis.com/": Failed host
+      lookup: 'storage.googleapis.com'
+    [31m✗[39m A network error occurred while checking
+      "https://maven.google.com/": Failed host lookup:
+      'maven.google.com'
+    [31m✗[39m A network error occurred while checking
+      "https://cocoapods.org/": Failed host lookup:
+      'cocoapods.org'
+    [31m✗[39m A network error occurred while checking
+      "https://github.com/": Failed host lookup:
+      'github.com'
+
+[33m![39m Doctor found issues in 1 category.
+```
