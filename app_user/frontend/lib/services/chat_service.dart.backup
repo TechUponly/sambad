@@ -229,7 +229,7 @@ class ChatService extends ChangeNotifier {
     // Also fetch contacts from API and merge
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:4000/api/contacts'),
+        Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/contacts'),
         headers: {'Content-Type': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -377,7 +377,7 @@ class ChatService extends ChangeNotifier {
       if (currentUserId == null) {
         // Get/create current user (default to 9999999999 for now)
         final currentUserResponse = await http.post(
-          Uri.parse('http://10.0.2.2:4000/api/users/login'),
+          Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/users/login'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'mobileNumber': '9999999999',
@@ -404,7 +404,7 @@ class ChatService extends ChangeNotifier {
         
         // Send message via API for WebSocket sync
         final messageResponse = await http.post(
-          Uri.parse('http://10.0.2.2:4000/api/messages'),
+          Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/messages'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'fromUserId': currentUserId,
@@ -544,7 +544,7 @@ class ChatService extends ChangeNotifier {
       if (currentUserId == null) {
         // Get/create current user
         final loginResponse = await http.post(
-          Uri.parse('http://10.0.2.2:4000/api/users/login'),
+          Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/users/login'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'mobileNumber': contact.phone,
@@ -558,7 +558,7 @@ class ChatService extends ChangeNotifier {
           
           // Get current user (default to 9999999999 for now)
           final currentUserResponse = await http.post(
-            Uri.parse('http://10.0.2.2:4000/api/users/login'),
+            Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/users/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'mobileNumber': '9999999999',
@@ -573,7 +573,7 @@ class ChatService extends ChangeNotifier {
             
             // Add contact via API
             await http.post(
-              Uri.parse('http://10.0.2.2:4000/api/contacts'),
+              Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/contacts'),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
                 'userId': currentUserId,
@@ -637,7 +637,7 @@ class ChatService extends ChangeNotifier {
   Future<void> _loadContactsFromAPI() async {
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:4000/api/contacts'),
+        Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/contacts'),
         headers: {'Content-Type': 'application/json'},
       );
       
@@ -678,7 +678,7 @@ class ChatService extends ChangeNotifier {
     try {
       debugPrint('[ChatService] Fetching contacts from API...');
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:4000/api/contacts'),
+        Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/contacts'),
         headers: {'Content-Type': 'application/json'},
       );
       
