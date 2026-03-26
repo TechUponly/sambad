@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
-const Color kPrimaryBlue = Color(0xFF5B7FFF);
-const Color kBgDark = Color(0xFF181A20);
+import '../theme/app_colors.dart';
 
 class PrivacyPolicyPage extends StatelessWidget {
   const PrivacyPolicyPage({super.key});
@@ -9,7 +7,7 @@ class PrivacyPolicyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDark,
+      backgroundColor: AppColors.bgDark,
       appBar: AppBar(
         backgroundColor: Colors.black87,
         title: const Text('Privacy Policy', style: TextStyle(color: Colors.white)),

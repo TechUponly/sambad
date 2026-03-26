@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/chat_service.dart';
-
-const Color kPrimaryBlue = Color(0xFF5B7FFF);
-const Color kBgCard = Color(0xFF23272F);
+import 'theme/app_colors.dart';
 
 class CreateGroupDialog extends StatefulWidget {
   const CreateGroupDialog({super.key});
@@ -19,7 +17,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: kBgCard,
+      backgroundColor: AppColors.bgCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 600, maxWidth: 400),
@@ -33,16 +31,16 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             TextField(
               controller: _nameController,
               style: const TextStyle(color: Colors.white, fontSize: 16),
-              cursorColor: kPrimaryBlue,
+              cursorColor: AppColors.primaryBlue,
               decoration: InputDecoration(
                 hintText: 'Group name',
                 hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.group, color: kPrimaryBlue),
+                prefixIcon: const Icon(Icons.group, color: AppColors.primaryBlue),
                 filled: true,
-                fillColor: Colors.white.withOpacity(0.08),
+                fillColor: Colors.white.withValues(alpha: 0.08),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
               ),
             ),
             const SizedBox(height: 20),
@@ -57,9 +55,9 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.people_outline, size: 48, color: Colors.white.withOpacity(0.3)),
+                          Icon(Icons.people_outline, size: 48, color: Colors.white.withValues(alpha: 0.3)),
                           const SizedBox(height: 12),
-                          Text('No contacts available', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14)),
+                          Text('No contacts available', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14)),
                         ],
                       ),
                     );
@@ -87,14 +85,14 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
-                              color: isSelected ? kPrimaryBlue.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+                              color: isSelected ? AppColors.primaryBlue.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(12),
-                              border: isSelected ? Border.all(color: kPrimaryBlue, width: 1.5) : null,
+                              border: isSelected ? Border.all(color: AppColors.primaryBlue, width: 1.5) : null,
                             ),
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  backgroundColor: isSelected ? kPrimaryBlue : Colors.white.withOpacity(0.1),
+                                  backgroundColor: isSelected ? AppColors.primaryBlue : Colors.white.withValues(alpha: 0.1),
                                   radius: 20,
                                   child: Text(
                                     contact.name.substring(0, 1).toUpperCase(),
@@ -108,11 +106,11 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                                     children: [
                                       Text(contact.name, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
                                       const SizedBox(height: 2),
-                                      Text(contact.phone, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+                                      Text(contact.phone, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
                                     ],
                                   ),
                                 ),
-                                if (isSelected) const Icon(Icons.check_circle, color: kPrimaryBlue, size: 24),
+                                if (isSelected) const Icon(Icons.check_circle, color: AppColors.primaryBlue, size: 24),
                               ],
                             ),
                           ),
@@ -135,17 +133,17 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 ElevatedButton(
                   onPressed: _selectedContacts.isEmpty || _nameController.text.isEmpty ? null : () {
                     final chatService = context.read<ChatService>();
-                    chatService.addGroup(_nameController.text);
+                    chatService.addGroup(_nameController.text, memberIds: _selectedContacts.toList());
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Group "${_nameController.text}" created with ${_selectedContacts.length} members!'),
-                        backgroundColor: kPrimaryBlue,
+                        backgroundColor: AppColors.primaryBlue,
                       ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryBlue,
+                    backgroundColor: AppColors.primaryBlue,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.white24,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

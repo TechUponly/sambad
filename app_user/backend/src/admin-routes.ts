@@ -51,7 +51,7 @@ router.get('/activity', async (req, res) => {
     const recentMessages = await messageRepo.find({
       order: { timestamp: 'DESC' },
       take: 10,
-      relations: ['from', 'to']
+      relations: ['from_user', 'to_user']
     });
     
     const recentContacts = await contactRepo.find({

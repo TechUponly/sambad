@@ -1,0 +1,496 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.shamrai.sambad"
+4    android:versionCode="5"
+5    android:versionName="4.0.9" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+9        android:targetSdkVersion="36" />
+10    <!--
+11         The INTERNET permission is required for development. Specifically,
+12         the Flutter tool needs it to communicate with the running application
+13         to allow setting breakpoints, to provide hot reload, etc.
+14    -->
+15    <uses-permission android:name="android.permission.INTERNET" />
+15-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:2:5-66
+15-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:2:22-64
+16    <uses-permission android:name="android.permission.READ_CONTACTS" />
+16-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:3:5-71
+16-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:3:22-69
+17    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+17-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:4:5-72
+17-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:4:22-70
+18    <uses-permission android:name="android.permission.CAMERA" />
+18-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:5:5-64
+18-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:5:22-62
+19    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+19-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:6:5-79
+19-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:6:22-77
+20    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+20-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:7:5-80
+20-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:7:22-78
+21
+22    <queries>
+22-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:36:5-41:15
+23        <intent>
+23-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:37:9-40:18
+24            <action android:name="android.intent.action.PROCESS_TEXT" />
+24-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:38:13-72
+24-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:38:21-70
+25
+26            <data android:mimeType="text/plain" />
+26-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:39:13-50
+26-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:39:19-48
+27        </intent>
+28    </queries>
+29
+30    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+30-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:26:5-79
+30-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:26:22-76
+31    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
+31-->[com.google.android.recaptcha:recaptcha:18.6.1] /Users/shamrai/.gradle/caches/8.13/transforms/876ba7a3ed7714aad28f73cbff88c5e2/transformed/recaptcha-18.6.1/AndroidManifest.xml:9:5-98
+31-->[com.google.android.recaptcha:recaptcha:18.6.1] /Users/shamrai/.gradle/caches/8.13/transforms/876ba7a3ed7714aad28f73cbff88c5e2/transformed/recaptcha-18.6.1/AndroidManifest.xml:9:22-95
+32
+33    <permission
+33-->[androidx.core:core:1.17.0] /Users/shamrai/.gradle/caches/8.13/transforms/98186e998e5a581bae9bd629ba972f66/transformed/core-1.17.0/AndroidManifest.xml:22:5-24:47
+34        android:name="com.shamrai.sambad.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+34-->[androidx.core:core:1.17.0] /Users/shamrai/.gradle/caches/8.13/transforms/98186e998e5a581bae9bd629ba972f66/transformed/core-1.17.0/AndroidManifest.xml:23:9-81
+35        android:protectionLevel="signature" />
+35-->[androidx.core:core:1.17.0] /Users/shamrai/.gradle/caches/8.13/transforms/98186e998e5a581bae9bd629ba972f66/transformed/core-1.17.0/AndroidManifest.xml:24:9-44
+36
+37    <uses-permission android:name="com.shamrai.sambad.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+37-->[androidx.core:core:1.17.0] /Users/shamrai/.gradle/caches/8.13/transforms/98186e998e5a581bae9bd629ba972f66/transformed/core-1.17.0/AndroidManifest.xml:26:5-97
+37-->[androidx.core:core:1.17.0] /Users/shamrai/.gradle/caches/8.13/transforms/98186e998e5a581bae9bd629ba972f66/transformed/core-1.17.0/AndroidManifest.xml:26:22-94
+38
+39    <application
+40        android:name="android.app.Application"
+41        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+41-->[androidx.core:core:1.17.0] /Users/shamrai/.gradle/caches/8.13/transforms/98186e998e5a581bae9bd629ba972f66/transformed/core-1.17.0/AndroidManifest.xml:28:18-86
+42        android:debuggable="true"
+43        android:extractNativeLibs="false"
+44        android:icon="@mipmap/ic_launcher"
+45        android:label="Private Sambad"
+46        android:usesCleartextTraffic="true" >
+47        <activity
+48            android:name="com.shamrai.sambad.MainActivity"
+49            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+50            android:exported="true"
+51            android:hardwareAccelerated="true"
+52            android:launchMode="singleTop"
+53            android:taskAffinity=""
+54            android:theme="@style/LaunchTheme"
+55            android:windowSoftInputMode="adjustResize" >
+56            <meta-data
+57                android:name="io.flutter.embedding.android.NormalTheme"
+58                android:resource="@style/NormalTheme" />
+59
+60            <intent-filter>
+61                <action android:name="android.intent.action.MAIN" />
+62
+63                <category android:name="android.intent.category.LAUNCHER" />
+64            </intent-filter>
+65        </activity>
+66
+67        <meta-data
+68            android:name="flutterEmbedding"
+69            android:value="2" />
+70        <!--
+71           Declares a provider which allows us to store files to share in
+72           '.../caches/share_plus' and grant the receiving action access
+73        -->
+74        <provider
+74-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:13:9-21:20
+75            android:name="dev.fluttercommunity.plus.share.ShareFileProvider"
+75-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:14:13-77
+76            android:authorities="com.shamrai.sambad.flutter.share_provider"
+76-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:15:13-74
+77            android:exported="false"
+77-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:16:13-37
+78            android:grantUriPermissions="true" >
+78-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:17:13-47
+79            <meta-data
+79-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:18:13-20:68
+80                android:name="android.support.FILE_PROVIDER_PATHS"
+80-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:19:17-67
+81                android:resource="@xml/flutter_share_file_paths" />
+81-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:20:17-65
+82        </provider>
+83        <!--
+84           This manifest declared broadcast receiver allows us to use an explicit
+85           Intent when creating a PendingItent to be informed of the user's choice
+86        -->
+87        <receiver
+87-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:26:9-32:20
+88            android:name="dev.fluttercommunity.plus.share.SharePlusPendingIntent"
+88-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:27:13-82
+89            android:exported="false" >
+89-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:28:13-37
+90            <intent-filter>
+90-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:29:13-31:29
+91                <action android:name="EXTRA_CHOSEN_COMPONENT" />
+91-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:30:17-65
+91-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:30:25-62
+92            </intent-filter>
+93        </receiver>
+94
+95        <provider
+95-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:9:9-17:20
+96            android:name="io.flutter.plugins.imagepicker.ImagePickerFileProvider"
+96-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:10:13-82
+97            android:authorities="com.shamrai.sambad.flutter.image_provider"
+97-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:11:13-74
+98            android:exported="false"
+98-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:12:13-37
+99            android:grantUriPermissions="true" >
+99-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:13:13-47
+100            <meta-data
+100-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:18:13-20:68
+101                android:name="android.support.FILE_PROVIDER_PATHS"
+101-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:19:17-67
+102                android:resource="@xml/flutter_image_picker_file_paths" />
+102-->[:share_plus] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/share_plus/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:20:17-65
+103        </provider> <!-- Trigger Google Play services to install the backported photo picker module. -->
+104        <service
+104-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:19:9-31:19
+105            android:name="com.google.android.gms.metadata.ModuleDependencies"
+105-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:20:13-78
+106            android:enabled="false"
+106-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:21:13-36
+107            android:exported="false" >
+107-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:22:13-37
+108            <intent-filter>
+108-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:24:13-26:29
+109                <action android:name="com.google.android.gms.metadata.MODULE_DEPENDENCIES" />
+109-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:25:17-94
+109-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:25:25-91
+110            </intent-filter>
+111
+112            <meta-data
+112-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:28:13-30:36
+113                android:name="photopicker_activity:0:required"
+113-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:29:17-63
+114                android:value="" />
+114-->[:image_picker_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/image_picker_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:30:17-33
+115        </service>
+116
+117        <activity
+117-->[:url_launcher_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/url_launcher_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:9-11:74
+118            android:name="io.flutter.plugins.urllauncher.WebViewActivity"
+118-->[:url_launcher_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/url_launcher_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:9:13-74
+119            android:exported="false"
+119-->[:url_launcher_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/url_launcher_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:10:13-37
+120            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+120-->[:url_launcher_android] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/url_launcher_android/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:11:13-71
+121
+122        <service
+122-->[:firebase_auth] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_auth/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:9-12:19
+123            android:name="com.google.firebase.components.ComponentDiscoveryService"
+123-->[:firebase_auth] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_auth/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:18-89
+124            android:directBootAware="true"
+124-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:32:13-43
+125            android:exported="false" >
+125-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:68:13-37
+126            <meta-data
+126-->[:firebase_auth] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_auth/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:9:13-11:85
+127                android:name="com.google.firebase.components:io.flutter.plugins.firebase.auth.FlutterFirebaseAuthRegistrar"
+127-->[:firebase_auth] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_auth/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:10:17-124
+128                android:value="com.google.firebase.components.ComponentRegistrar" />
+128-->[:firebase_auth] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_auth/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:11:17-82
+129            <meta-data
+129-->[:firebase_app_check] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_app_check/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:9:13-11:85
+130                android:name="com.google.firebase.components:io.flutter.plugins.firebase.appcheck.FlutterFirebaseAppRegistrar"
+130-->[:firebase_app_check] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_app_check/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:10:17-127
+131                android:value="com.google.firebase.components.ComponentRegistrar" />
+131-->[:firebase_app_check] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_app_check/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:11:17-82
+132            <meta-data
+132-->[:firebase_core] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_core/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:9:13-11:85
+133                android:name="com.google.firebase.components:io.flutter.plugins.firebase.core.FlutterFirebaseCoreRegistrar"
+133-->[:firebase_core] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_core/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:10:17-124
+134                android:value="com.google.firebase.components.ComponentRegistrar" />
+134-->[:firebase_core] /Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/firebase_core/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:11:17-82
+135            <meta-data
+135-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:69:13-71:85
+136                android:name="com.google.firebase.components:com.google.firebase.auth.FirebaseAuthRegistrar"
+136-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:70:17-109
+137                android:value="com.google.firebase.components.ComponentRegistrar" />
+137-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:71:17-82
+138            <meta-data
+138-->[com.google.firebase:firebase-appcheck-safetynet:16.1.2] /Users/shamrai/.gradle/caches/8.13/transforms/d373e9b26f444d076e773cb7fda4f0ce/transformed/firebase-appcheck-safetynet-16.1.2/AndroidManifest.xml:27:13-29:85
+139                android:name="com.google.firebase.components:com.google.firebase.appcheck.safetynet.FirebaseAppCheckSafetyNetRegistrar"
+139-->[com.google.firebase:firebase-appcheck-safetynet:16.1.2] /Users/shamrai/.gradle/caches/8.13/transforms/d373e9b26f444d076e773cb7fda4f0ce/transformed/firebase-appcheck-safetynet-16.1.2/AndroidManifest.xml:28:17-136
+140                android:value="com.google.firebase.components.ComponentRegistrar" />
+140-->[com.google.firebase:firebase-appcheck-safetynet:16.1.2] /Users/shamrai/.gradle/caches/8.13/transforms/d373e9b26f444d076e773cb7fda4f0ce/transformed/firebase-appcheck-safetynet-16.1.2/AndroidManifest.xml:29:17-82
+141            <meta-data
+141-->[com.google.firebase:firebase-appcheck-debug:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f6bdf1d786ddb397658372d99610e04/transformed/firebase-appcheck-debug-18.0.0/AndroidManifest.xml:25:13-27:85
+142                android:name="com.google.firebase.components:com.google.firebase.appcheck.debug.FirebaseAppCheckDebugRegistrar"
+142-->[com.google.firebase:firebase-appcheck-debug:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f6bdf1d786ddb397658372d99610e04/transformed/firebase-appcheck-debug-18.0.0/AndroidManifest.xml:26:17-128
+143                android:value="com.google.firebase.components.ComponentRegistrar" />
+143-->[com.google.firebase:firebase-appcheck-debug:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f6bdf1d786ddb397658372d99610e04/transformed/firebase-appcheck-debug-18.0.0/AndroidManifest.xml:27:17-82
+144            <meta-data
+144-->[com.google.firebase:firebase-appcheck-playintegrity:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/805a2ace3a072c29fb70137fab7ed744/transformed/firebase-appcheck-playintegrity-18.0.0/AndroidManifest.xml:25:13-27:85
+145                android:name="com.google.firebase.components:com.google.firebase.appcheck.playintegrity.FirebaseAppCheckPlayIntegrityRegistrar"
+145-->[com.google.firebase:firebase-appcheck-playintegrity:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/805a2ace3a072c29fb70137fab7ed744/transformed/firebase-appcheck-playintegrity-18.0.0/AndroidManifest.xml:26:17-144
+146                android:value="com.google.firebase.components.ComponentRegistrar" />
+146-->[com.google.firebase:firebase-appcheck-playintegrity:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/805a2ace3a072c29fb70137fab7ed744/transformed/firebase-appcheck-playintegrity-18.0.0/AndroidManifest.xml:27:17-82
+147            <meta-data
+147-->[com.google.firebase:firebase-appcheck:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/46607d7886bef22af8a209be822dbd77/transformed/firebase-appcheck-18.0.0/AndroidManifest.xml:25:13-27:85
+148                android:name="com.google.firebase.components:com.google.firebase.appcheck.FirebaseAppCheckKtxRegistrar"
+148-->[com.google.firebase:firebase-appcheck:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/46607d7886bef22af8a209be822dbd77/transformed/firebase-appcheck-18.0.0/AndroidManifest.xml:26:17-120
+149                android:value="com.google.firebase.components.ComponentRegistrar" />
+149-->[com.google.firebase:firebase-appcheck:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/46607d7886bef22af8a209be822dbd77/transformed/firebase-appcheck-18.0.0/AndroidManifest.xml:27:17-82
+150            <meta-data
+150-->[com.google.firebase:firebase-appcheck:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/46607d7886bef22af8a209be822dbd77/transformed/firebase-appcheck-18.0.0/AndroidManifest.xml:28:13-30:85
+151                android:name="com.google.firebase.components:com.google.firebase.appcheck.FirebaseAppCheckRegistrar"
+151-->[com.google.firebase:firebase-appcheck:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/46607d7886bef22af8a209be822dbd77/transformed/firebase-appcheck-18.0.0/AndroidManifest.xml:29:17-117
+152                android:value="com.google.firebase.components.ComponentRegistrar" />
+152-->[com.google.firebase:firebase-appcheck:18.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/46607d7886bef22af8a209be822dbd77/transformed/firebase-appcheck-18.0.0/AndroidManifest.xml:30:17-82
+153            <meta-data
+153-->[com.google.firebase:firebase-common-ktx:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/af16cdcb3880d5d682d19f7cd111b81d/transformed/firebase-common-ktx-21.0.0/AndroidManifest.xml:12:13-14:85
+154                android:name="com.google.firebase.components:com.google.firebase.ktx.FirebaseCommonLegacyRegistrar"
+154-->[com.google.firebase:firebase-common-ktx:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/af16cdcb3880d5d682d19f7cd111b81d/transformed/firebase-common-ktx-21.0.0/AndroidManifest.xml:13:17-116
+155                android:value="com.google.firebase.components.ComponentRegistrar" />
+155-->[com.google.firebase:firebase-common-ktx:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/af16cdcb3880d5d682d19f7cd111b81d/transformed/firebase-common-ktx-21.0.0/AndroidManifest.xml:14:17-82
+156            <meta-data
+156-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:35:13-37:85
+157                android:name="com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar"
+157-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:36:17-109
+158                android:value="com.google.firebase.components.ComponentRegistrar" />
+158-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:37:17-82
+159        </service>
+160
+161        <activity
+161-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:29:9-46:20
+162            android:name="com.google.firebase.auth.internal.GenericIdpActivity"
+162-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:30:13-80
+163            android:excludeFromRecents="true"
+163-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:31:13-46
+164            android:exported="true"
+164-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:32:13-36
+165            android:launchMode="singleTask"
+165-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:33:13-44
+166            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+166-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:34:13-72
+167            <intent-filter>
+167-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:35:13-45:29
+168                <action android:name="android.intent.action.VIEW" />
+168-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:36:17-69
+168-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:36:25-66
+169
+170                <category android:name="android.intent.category.DEFAULT" />
+170-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:38:17-76
+170-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:38:27-73
+171                <category android:name="android.intent.category.BROWSABLE" />
+171-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:39:17-78
+171-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:39:27-75
+172
+173                <data
+173-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:39:13-50
+174                    android:host="firebase.auth"
+175                    android:path="/"
+176                    android:scheme="genericidp" />
+177            </intent-filter>
+178        </activity>
+179        <activity
+179-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:47:9-64:20
+180            android:name="com.google.firebase.auth.internal.RecaptchaActivity"
+180-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:48:13-79
+181            android:excludeFromRecents="true"
+181-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:49:13-46
+182            android:exported="true"
+182-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:50:13-36
+183            android:launchMode="singleTask"
+183-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:51:13-44
+184            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+184-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:52:13-72
+185            <intent-filter>
+185-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:53:13-63:29
+186                <action android:name="android.intent.action.VIEW" />
+186-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:36:17-69
+186-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:36:25-66
+187
+188                <category android:name="android.intent.category.DEFAULT" />
+188-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:38:17-76
+188-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:38:27-73
+189                <category android:name="android.intent.category.BROWSABLE" />
+189-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:39:17-78
+189-->[com.google.firebase:firebase-auth:23.2.1] /Users/shamrai/.gradle/caches/8.13/transforms/781dd317ebec44352e9d6fd17d9fbe9b/transformed/firebase-auth-23.2.1/AndroidManifest.xml:39:27-75
+190
+191                <data
+191-->/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/android/app/src/main/AndroidManifest.xml:39:13-50
+192                    android:host="firebase.auth"
+193                    android:path="/"
+194                    android:scheme="recaptcha" />
+195            </intent-filter>
+196        </activity>
+197
+198        <provider
+198-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:23:9-28:39
+199            android:name="com.google.firebase.provider.FirebaseInitProvider"
+199-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:24:13-77
+200            android:authorities="com.shamrai.sambad.firebaseinitprovider"
+200-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:25:13-72
+201            android:directBootAware="true"
+201-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:26:13-43
+202            android:exported="false"
+202-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:27:13-37
+203            android:initOrder="100" />
+203-->[com.google.firebase:firebase-common:21.0.0] /Users/shamrai/.gradle/caches/8.13/transforms/5c7c6114a6d3d340d3443eb3ce5e29e1/transformed/firebase-common-21.0.0/AndroidManifest.xml:28:13-36
+204
+205        <service
+205-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:24:9-32:19
+206            android:name="androidx.credentials.playservices.CredentialProviderMetadataHolder"
+206-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:25:13-94
+207            android:enabled="true"
+207-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:26:13-35
+208            android:exported="false" >
+208-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:27:13-37
+209            <meta-data
+209-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:29:13-31:104
+210                android:name="androidx.credentials.CREDENTIAL_PROVIDER_KEY"
+210-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:30:17-76
+211                android:value="androidx.credentials.playservices.CredentialProviderPlayServicesImpl" />
+211-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:31:17-101
+212        </service>
+213
+214        <activity
+214-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:34:9-41:20
+215            android:name="androidx.credentials.playservices.HiddenActivity"
+215-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:35:13-76
+216            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+216-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:36:13-87
+217            android:enabled="true"
+217-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:37:13-35
+218            android:exported="false"
+218-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:38:13-37
+219            android:fitsSystemWindows="true"
+219-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:39:13-45
+220            android:theme="@style/Theme.Hidden" >
+220-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /Users/shamrai/.gradle/caches/8.13/transforms/ccf338d79f313a1a472d2348dad403cc/transformed/credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:40:13-48
+221        </activity>
+222        <activity
+222-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:23:9-27:75
+223            android:name="com.google.android.gms.auth.api.signin.internal.SignInHubActivity"
+223-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:24:13-93
+224            android:excludeFromRecents="true"
+224-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:25:13-46
+225            android:exported="false"
+225-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:26:13-37
+226            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+226-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:27:13-72
+227        <!--
+228            Service handling Google Sign-In user revocation. For apps that do not integrate with
+229            Google Sign-In, this service will never be started.
+230        -->
+231        <service
+231-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:33:9-37:51
+232            android:name="com.google.android.gms.auth.api.signin.RevocationBoundService"
+232-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:34:13-89
+233            android:exported="true"
+233-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:35:13-36
+234            android:permission="com.google.android.gms.auth.api.signin.permission.REVOCATION_NOTIFICATION"
+234-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:36:13-107
+235            android:visibleToInstantApps="true" />
+235-->[com.google.android.gms:play-services-auth:20.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/5ef3629572d89975b371882386b7c8db/transformed/play-services-auth-20.7.0/AndroidManifest.xml:37:13-48
+236
+237        <activity
+237-->[com.google.android.gms:play-services-base:18.1.0] /Users/shamrai/.gradle/caches/8.13/transforms/b40112c037b35f8405b3a85057823174/transformed/play-services-base-18.1.0/AndroidManifest.xml:20:9-22:45
+238            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+238-->[com.google.android.gms:play-services-base:18.1.0] /Users/shamrai/.gradle/caches/8.13/transforms/b40112c037b35f8405b3a85057823174/transformed/play-services-base-18.1.0/AndroidManifest.xml:20:19-85
+239            android:exported="false"
+239-->[com.google.android.gms:play-services-base:18.1.0] /Users/shamrai/.gradle/caches/8.13/transforms/b40112c037b35f8405b3a85057823174/transformed/play-services-base-18.1.0/AndroidManifest.xml:22:19-43
+240            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+240-->[com.google.android.gms:play-services-base:18.1.0] /Users/shamrai/.gradle/caches/8.13/transforms/b40112c037b35f8405b3a85057823174/transformed/play-services-base-18.1.0/AndroidManifest.xml:21:19-78
+241
+242        <uses-library
+242-->[androidx.window:window:1.2.0] /Users/shamrai/.gradle/caches/8.13/transforms/3713732c88bf1d5ebb1bb3877bdad250/transformed/window-1.2.0/AndroidManifest.xml:23:9-25:40
+243            android:name="androidx.window.extensions"
+243-->[androidx.window:window:1.2.0] /Users/shamrai/.gradle/caches/8.13/transforms/3713732c88bf1d5ebb1bb3877bdad250/transformed/window-1.2.0/AndroidManifest.xml:24:13-54
+244            android:required="false" />
+244-->[androidx.window:window:1.2.0] /Users/shamrai/.gradle/caches/8.13/transforms/3713732c88bf1d5ebb1bb3877bdad250/transformed/window-1.2.0/AndroidManifest.xml:25:13-37
+245        <uses-library
+245-->[androidx.window:window:1.2.0] /Users/shamrai/.gradle/caches/8.13/transforms/3713732c88bf1d5ebb1bb3877bdad250/transformed/window-1.2.0/AndroidManifest.xml:26:9-28:40
+246            android:name="androidx.window.sidecar"
+246-->[androidx.window:window:1.2.0] /Users/shamrai/.gradle/caches/8.13/transforms/3713732c88bf1d5ebb1bb3877bdad250/transformed/window-1.2.0/AndroidManifest.xml:27:13-51
+247            android:required="false" />
+247-->[androidx.window:window:1.2.0] /Users/shamrai/.gradle/caches/8.13/transforms/3713732c88bf1d5ebb1bb3877bdad250/transformed/window-1.2.0/AndroidManifest.xml:28:13-37
+248
+249        <provider
+249-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:24:9-32:20
+250            android:name="androidx.startup.InitializationProvider"
+250-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:25:13-67
+251            android:authorities="com.shamrai.sambad.androidx-startup"
+251-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:26:13-68
+252            android:exported="false" >
+252-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:27:13-37
+253            <meta-data
+253-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:29:13-31:52
+254                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+254-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:30:17-78
+255                android:value="androidx.startup" />
+255-->[androidx.lifecycle:lifecycle-process:2.7.0] /Users/shamrai/.gradle/caches/8.13/transforms/3f4ed6ed27142a2a1982d356db99be3e/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:31:17-49
+256            <meta-data
+256-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:29:13-31:52
+257                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+257-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:30:17-85
+258                android:value="androidx.startup" />
+258-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:31:17-49
+259        </provider>
+260
+261        <meta-data
+261-->[com.google.android.gms:play-services-basement:18.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/056b9be6cdcabc1d97525c6801053305/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:9-122
+262            android:name="com.google.android.gms.version"
+262-->[com.google.android.gms:play-services-basement:18.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/056b9be6cdcabc1d97525c6801053305/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:20-65
+263            android:value="@integer/google_play_services_version" />
+263-->[com.google.android.gms:play-services-basement:18.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/056b9be6cdcabc1d97525c6801053305/transformed/play-services-basement-18.4.0/AndroidManifest.xml:6:66-119
+264
+265        <receiver
+265-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:34:9-52:20
+266            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+266-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:35:13-76
+267            android:directBootAware="false"
+267-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:36:13-44
+268            android:enabled="true"
+268-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:37:13-35
+269            android:exported="true"
+269-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:38:13-36
+270            android:permission="android.permission.DUMP" >
+270-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:39:13-57
+271            <intent-filter>
+271-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:40:13-42:29
+272                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+272-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:17-91
+272-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:25-88
+273            </intent-filter>
+274            <intent-filter>
+274-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:43:13-45:29
+275                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+275-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:17-85
+275-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:25-82
+276            </intent-filter>
+277            <intent-filter>
+277-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:46:13-48:29
+278                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+278-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:17-88
+278-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:25-85
+279            </intent-filter>
+280            <intent-filter>
+280-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:49:13-51:29
+281                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+281-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:17-95
+281-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/shamrai/.gradle/caches/8.13/transforms/7f5daa02decbd892f8cb69bfb4a790e0/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:25-92
+282            </intent-filter>
+283        </receiver> <!-- The activities will be merged into the manifest of the hosting app. -->
+284        <activity
+284-->[com.google.android.play:core-common:2.0.3] /Users/shamrai/.gradle/caches/8.13/transforms/1577c6d00b7e7f5681338d1ac2f15ec8/transformed/core-common-2.0.3/AndroidManifest.xml:14:9-18:65
+285            android:name="com.google.android.play.core.common.PlayCoreDialogWrapperActivity"
+285-->[com.google.android.play:core-common:2.0.3] /Users/shamrai/.gradle/caches/8.13/transforms/1577c6d00b7e7f5681338d1ac2f15ec8/transformed/core-common-2.0.3/AndroidManifest.xml:15:13-93
+286            android:exported="false"
+286-->[com.google.android.play:core-common:2.0.3] /Users/shamrai/.gradle/caches/8.13/transforms/1577c6d00b7e7f5681338d1ac2f15ec8/transformed/core-common-2.0.3/AndroidManifest.xml:16:13-37
+287            android:stateNotNeeded="true"
+287-->[com.google.android.play:core-common:2.0.3] /Users/shamrai/.gradle/caches/8.13/transforms/1577c6d00b7e7f5681338d1ac2f15ec8/transformed/core-common-2.0.3/AndroidManifest.xml:17:13-42
+288            android:theme="@style/Theme.PlayCore.Transparent" />
+288-->[com.google.android.play:core-common:2.0.3] /Users/shamrai/.gradle/caches/8.13/transforms/1577c6d00b7e7f5681338d1ac2f15ec8/transformed/core-common-2.0.3/AndroidManifest.xml:18:13-62
+289    </application>
+290
+291</manifest>

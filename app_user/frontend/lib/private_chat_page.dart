@@ -185,4 +185,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         );
       },
     );
-// ...existing code...
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+}

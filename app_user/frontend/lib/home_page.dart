@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'services/chat_service.dart';
-// ...existing code...
 import 'widgets/contact_tile.dart';
 import 'chat_page.dart';
 import 'ai_bot_chat_page.dart';
 import 'add_contact_dialog.dart';
 import 'profile_section_page.dart';
 import 'create_group_dialog.dart';
-
-const Color kPrimaryBlue = Color(0xFF5B7FFF);
-const Color kAccentGreen = Color(0xFF00C853);
-const Color kBgDark = Color(0xFF181A20);
-const Color kBgCard = Color(0xFF23272F);
+import 'theme/app_colors.dart';
+import 'utils/responsive.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -45,7 +42,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _loadProfile() async {
-    setState(() => _profileName = 'Shamrai');
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('current_user_name') ?? 
+                 prefs.getString('profile_name') ?? 
+                 'User';
+    if (mounted) setState(() => _profileName = name);
   }
 
   void _createGroup(BuildContext context) {
@@ -58,7 +59,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kBgDark,
+      backgroundColor: AppColors.bgDark,
       appBar: _buildAppBar(),
       body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
       bottomNavigationBar: _buildBottomNav(),
@@ -67,39 +68,40 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: kBgCard,
+      backgroundColor: AppColors.bgCard,
       elevation: 0,
-      leadingWidth: 56,
+      leadingWidth: Responsive.size(context, 56),
       leading: IconButton(
         icon: CircleAvatar(
-          backgroundColor: kPrimaryBlue,
-          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'S', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          radius: Responsive.size(context, 18),
+          backgroundColor: AppColors.avatarColor(_profileName ?? 'U'),
+          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'U', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 14))),
         ),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage())),
+        onPressed: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage()));
+          _loadProfile(); // Refresh name after returning from profile
+        },
       ),
-      actions: [
-        Container(
-          width: 240,
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          child: TextField(
-            controller: _searchController,
-            focusNode: _searchFocus,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Search contacts...',
-              hintStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: Colors.white10,
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
-              prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
-              suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54, size: 18), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
-            ),
-            onChanged: (value) => setState(() => _searchQuery = value),
+      title: SizedBox(
+        height: Responsive.size(context, 40),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocus,
+          style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 14)),
+          decoration: InputDecoration(
+            hintText: 'Search contacts...',
+            hintStyle: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 14)),
+            filled: true,
+            fillColor: Colors.white10,
+            contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: Responsive.horizontal(context, 12)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24)), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24)), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
+            prefixIcon: Icon(Icons.search, color: Colors.white54, size: Responsive.size(context, 20)),
+            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear, color: Colors.white54, size: Responsive.size(context, 18)), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
           ),
+          onChanged: (value) => setState(() => _searchQuery = value),
         ),
-      ],
+      ),
     );
   }
 
@@ -116,32 +118,34 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildChatsTab() {
     return Consumer<ChatService>(
       builder: (context, chatService, _) {
-        final allContacts = chatService.contacts;
+        final allContacts = chatService.contacts
+            .where((c) => !chatService.blockedContacts.contains(c.id))
+            .toList();
         final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.phone.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
 
         return Column(
           children: [
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
+              margin: Responsive.paddingAll(context, 16),
+              padding: Responsive.paddingAll(context, 20),
               decoration: BoxDecoration(
-                color: kPrimaryBlue,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                color: AppColors.primaryBlue,
+                borderRadius: BorderRadius.circular(Responsive.radius(context, 16)),
+                boxShadow: [BoxShadow(color: AppColors.primaryBlue.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Expanded(child: Text('Private Sambad welcomes you!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Expanded(child: Text('Private Sambad welcomes you!', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 ],
               ),
             ),
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
+              margin: Responsive.paddingSymmetric(context, h: 16),
+              padding: Responsive.paddingAll(context, 16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [kPrimaryBlue.withOpacity(0.2), kPrimaryBlue.withOpacity(0.1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: kPrimaryBlue.withOpacity(0.3), width: 2),
+                gradient: LinearGradient(colors: [AppColors.primaryBlue.withValues(alpha: 0.2), AppColors.primaryBlue.withValues(alpha: 0.1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(Responsive.radius(context, 20)),
+                border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.3), width: 2),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -152,8 +156,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; final unread = index % 4 == 0; return Container(margin: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12), border: unread ? const Border(left: BorderSide(color: kPrimaryBlue, width: 2)) : null), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: unread ? 2 : 0)); })),
+            SizedBox(height: Responsive.vertical(context, 16)),
+            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: Responsive.paddingSymmetric(context, h: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; return Container(margin: EdgeInsets.symmetric(vertical: Responsive.vertical(context, 4)), decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: 0)); })),
           ],
         );
       },
@@ -166,18 +170,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          splashColor: kPrimaryBlue.withOpacity(0.3),
-          highlightColor: kPrimaryBlue.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+          splashColor: AppColors.primaryBlue.withValues(alpha: 0.3),
+          highlightColor: AppColors.primaryBlue.withValues(alpha: 0.2),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+            padding: Responsive.paddingSymmetric(context, v: 16, h: 8),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: Colors.white, size: 28),
-                const SizedBox(height: 6),
-                Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Icon(icon, color: Colors.white, size: Responsive.size(context, 28)),
+                SizedBox(height: Responsive.vertical(context, 6)),
+                Text(label, style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -190,21 +194,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Expanded(
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: Responsive.paddingAll(context, 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: kPrimaryBlue.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.chat_bubble_outline, size: 64, color: kPrimaryBlue)),
-              const SizedBox(height: 24),
-              const Text('No chats yet', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              const Text('Start a conversation by adding a contact', style: TextStyle(color: Colors.white60, fontSize: 16), textAlign: TextAlign.center),
-              const SizedBox(height: 32),
+              Container(padding: Responsive.paddingAll(context, 24), decoration: BoxDecoration(color: AppColors.primaryBlue.withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(Icons.chat_bubble_outline, size: Responsive.size(context, 64), color: AppColors.primaryBlue)),
+              SizedBox(height: Responsive.vertical(context, 24)),
+              Text('No chats yet', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
+              SizedBox(height: Responsive.vertical(context, 12)),
+              Text('Start a conversation by adding a contact', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 16)), textAlign: TextAlign.center),
+              SizedBox(height: Responsive.vertical(context, 32)),
               ElevatedButton.icon(
                 onPressed: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); },
                 icon: const Icon(Icons.person_add),
                 label: const Text('Add Your First Contact'),
-                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: Responsive.paddingSymmetric(context, h: 24, v: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
               ),
             ],
           ),
@@ -214,7 +218,42 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildGroupsTab() {
-    return Consumer<ChatService>(builder: (context, chatService, _) { final groups = chatService.groups.where((g) => !chatService.blockedGroups.contains(g)).toList(); if (groups.isEmpty) { return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [ const Icon(Icons.groups, size: 64, color: Colors.white54), const SizedBox(height: 16), const Text('No groups yet', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(height: 12), const Text('Create a group to chat with multiple people', style: TextStyle(color: Colors.white60)), const SizedBox(height: 24), ElevatedButton.icon(onPressed: () => _createGroup(context), icon: const Icon(Icons.group_add), label: const Text('Create Group'), style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))), ])); } return ListView.builder(padding: const EdgeInsets.all(16), itemCount: groups.length, itemBuilder: (context, index) { final group = groups[index]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12)), child: ListTile(leading: CircleAvatar(backgroundColor: kPrimaryBlue.withOpacity(0.2), child: const Icon(Icons.group, color: kPrimaryBlue)), title: Text(group, style: const TextStyle(color: Colors.white)), subtitle: const Text('Tap to open', style: TextStyle(color: Colors.white60)), onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))); })); }); });
+    return Consumer<ChatService>(builder: (context, chatService, _) {
+      final groups = chatService.groups.where((g) => !chatService.blockedGroups.contains(g)).toList();
+      if (groups.isEmpty) {
+        return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.groups, size: Responsive.size(context, 64), color: Colors.white54),
+          SizedBox(height: Responsive.vertical(context, 16)),
+          Text('No groups yet', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
+          SizedBox(height: Responsive.vertical(context, 12)),
+          Text('Create a group to chat with multiple people', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 16))),
+          SizedBox(height: Responsive.vertical(context, 24)),
+          ElevatedButton.icon(
+            onPressed: () => _createGroup(context),
+            icon: const Icon(Icons.group_add),
+            label: const Text('Create Group'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: Responsive.paddingSymmetric(context, h: 24, v: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
+          ),
+        ]));
+      }
+      return ListView.builder(
+        padding: Responsive.paddingAll(context, 16),
+        itemCount: groups.length,
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          return Container(
+            margin: EdgeInsets.only(bottom: Responsive.vertical(context, 8)),
+            decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+            child: ListTile(
+              leading: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
+              title: Text(group, style: const TextStyle(color: Colors.white)),
+              subtitle: Text('Tap to open', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 14))),
+              onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))); },
+            ),
+          );
+        },
+      );
+    });
   }
 
   Widget _buildAIBotTab() {
@@ -226,9 +265,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.settings, size: 80, color: Colors.white54),
-          const SizedBox(height: 20),
-          const Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          Icon(Icons.settings, size: Responsive.size(context, 80), color: Colors.white54),
+          SizedBox(height: Responsive.vertical(context, 20)),
+          Text('Settings', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -236,16 +275,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildBottomNav() {
     return Container(
-      decoration: BoxDecoration(color: Colors.black87, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, -2))]),
+      decoration: BoxDecoration(color: Colors.black87, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, -2))]),
       child: SafeArea(
         child: SizedBox(
-          height: 65,
+          height: Responsive.size(context, 65),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', 8),
+              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', 0),
               _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'Groups', 0),
-              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'Coming Soon', 0),
+              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'AI Bot', 0),
               _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings', 0),
             ],
           ),
@@ -256,6 +295,37 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildNavItem(int index, IconData iconOutline, IconData iconFilled, String label, int badge) {
     final bool isSelected = _currentIndex == index;
-    return Expanded(child: InkWell(onTap: () { setState(() => _currentIndex = index); _fabAnimController.forward(from: 0); }, child: Stack(alignment: Alignment.topCenter, children: [ Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: isSelected ? const BoxDecoration(border: Border(top: BorderSide(color: kPrimaryBlue, width: 2))) : null, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [ Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? kPrimaryBlue : Colors.white70, size: 24), const SizedBox(height: 4), Text(label, style: TextStyle(color: isSelected ? kPrimaryBlue : Colors.white70, fontSize: 11, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)), ])), if (badge > 0) Positioned(top: 4, right: MediaQuery.of(context).size.width / 8 - 20, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: kPrimaryBlue, borderRadius: BorderRadius.circular(10)), constraints: const BoxConstraints(minWidth: 18), child: Text(badge.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center))), ])));
+    return Expanded(
+      child: InkWell(
+        onTap: () { setState(() => _currentIndex = index); _fabAnimController.forward(from: 0); },
+        child: Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            Container(
+              padding: Responsive.paddingSymmetric(context, v: 8),
+              decoration: isSelected ? const BoxDecoration(border: Border(top: BorderSide(color: AppColors.primaryBlue, width: 2))) : null,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? AppColors.primaryBlue : Colors.white70, size: Responsive.size(context, 24)),
+                  SizedBox(height: Responsive.vertical(context, 4)),
+                  Text(label, style: TextStyle(color: isSelected ? AppColors.primaryBlue : Colors.white70, fontSize: Responsive.fontSize(context, 11), fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+                ],
+              ),
+            ),
+            if (badge > 0) Positioned(
+              top: 4,
+              right: Responsive.width(context) / 8 - 20,
+              child: Container(
+                padding: Responsive.paddingSymmetric(context, h: 6, v: 2),
+                decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(Responsive.radius(context, 10))),
+                constraints: BoxConstraints(minWidth: Responsive.size(context, 18)),
+                child: Text(badge.toString(), style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 10), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

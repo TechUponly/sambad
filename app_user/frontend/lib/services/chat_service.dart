@@ -1,10 +1,12 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show WebSocket;
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import 'api_service.dart';
@@ -22,6 +24,11 @@ class ChatService extends ChangeNotifier {
         notifyListeners();
       }
     }
+  // WebSocket for real-time messaging
+  WebSocket? _ws;
+  Timer? _wsReconnectTimer;
+  bool _wsConnecting = false;
+  String? _currentUserId;
   // Inactivity timer for auto-clear
   Timer? _inactivityTimer;
   // AES-GCM for strong encryption
@@ -29,7 +36,17 @@ class ChatService extends ChangeNotifier {
   SecretKey? _secretKey;
   // Cached admin settings
   Map<String, dynamic>? _adminSettings;
-  final String _adminApiBase = 'https://web.uponlytech.com/sambad-admin-backend';
+  final String _adminApiBase = AppConfig.adminBase;
+
+  /// Get auth headers for all HTTP calls
+  Future<Map<String, String>> _authHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('firebase_token');
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   /// Push a message or user activity to the admin portal for audit/sync
   Future<void> syncToAdminPortal({String? event, Map<String, dynamic>? data}) async {
@@ -40,7 +57,8 @@ class ChatService extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
         'data': data ?? {},
       };
-      final resp = await http.post(uri, body: jsonEncode(payload), headers: {'Content-Type': 'application/json'});
+      final headers = await _authHeaders();
+      final resp = await http.post(uri, body: jsonEncode(payload), headers: headers);
       if (resp.statusCode == 200) {
         debugPrint('[AdminSync] Synced event: $event');
       } else {
@@ -55,11 +73,11 @@ class ChatService extends ChangeNotifier {
   Future<void> fetchAdminSettings() async {
     try {
       final uri = Uri.parse('$_adminApiBase/settings');
-      final resp = await http.get(uri);
+      final headers = await _authHeaders();
+      final resp = await http.get(uri, headers: headers);
       if (resp.statusCode == 200) {
         _adminSettings = jsonDecode(resp.body) as Map<String, dynamic>;
         debugPrint('[AdminSync] Admin settings loaded: $_adminSettings');
-        // TODO: Apply settings to local config (encryption, timeouts, etc.)
       } else {
         debugPrint('[AdminSync] Failed to fetch settings: ${resp.statusCode}');
       }
@@ -99,14 +117,15 @@ class ChatService extends ChangeNotifier {
   final String privateConversationId = 'private';
 
   String? _currentUserPhone;
-  String? _currentUserId;
-  
-  Future<void> loginUser(String phone) async {
+  Future<void> loginUser(String phone, {String? name}) async {
     try {
+      final body = <String, dynamic>{'phone': phone};
+      if (name != null && name.isNotEmpty) body['name'] = name;
+      
       final response = await http.post(
-        Uri.parse('https://web.uponlytech.com/sambad-backend/api/users/login'),
+        Uri.parse('${AppConfig.apiBase}/users/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phone': phone}),
+        body: jsonEncode(body),
       );
       
       if (response.statusCode == 200) {
@@ -118,13 +137,114 @@ class ChatService extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('current_user_phone', phone);
         await prefs.setString('current_user_id', userData['id']);
+        if (userData['name'] != null) {
+          await prefs.setString('current_user_name', userData['name']);
+        }
         
-        debugPrint('[ChatService] Logged in as: $phone (${userData['id']})');
+        debugPrint('[ChatService] Logged in as: $phone (${userData['id']}) name: ${userData['name']}');
+        
+        // Connect WebSocket for real-time messages
+        _connectWebSocket();
       }
     } catch (e) {
       debugPrint('[ChatService] Login error: $e');
     }
   }
+
+  /// Connect to backend WebSocket for real-time message delivery
+  Future<void> _connectWebSocket() async {
+    if (_wsConnecting || _currentUserId == null) return;
+    _wsConnecting = true;
+    _wsReconnectTimer?.cancel();
+
+    try {
+      final wsUrl = '${AppConfig.wsBase}?userId=$_currentUserId';
+      debugPrint('[WS] Connecting to $wsUrl');
+      _ws = await WebSocket.connect(wsUrl).timeout(const Duration(seconds: 10));
+      debugPrint('[WS] Connected');
+
+      // Register user
+      _ws!.add(jsonEncode({'type': 'register', 'userId': _currentUserId}));
+
+      // Listen for incoming messages
+      _ws!.listen(
+        (data) {
+          try {
+            final msg = jsonDecode(data.toString());
+            _handleWsMessage(msg);
+          } catch (e) {
+            debugPrint('[WS] Parse error: $e');
+          }
+        },
+        onDone: () {
+          debugPrint('[WS] Disconnected, will reconnect in 3s');
+          _ws = null;
+          _wsConnecting = false;
+          _scheduleWsReconnect();
+        },
+        onError: (e) {
+          debugPrint('[WS] Error: $e');
+          _ws = null;
+          _wsConnecting = false;
+          _scheduleWsReconnect();
+        },
+      );
+    } catch (e) {
+      debugPrint('[WS] Connection failed: $e');
+      _wsConnecting = false;
+      _scheduleWsReconnect();
+      return;
+    }
+    _wsConnecting = false;
+  }
+
+  void _scheduleWsReconnect() {
+    _wsReconnectTimer?.cancel();
+    _wsReconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (_currentUserId != null) _connectWebSocket();
+    });
+  }
+
+  void _handleWsMessage(Map<String, dynamic> msg) {
+    final type = msg['type'] as String?;
+    final data = msg['data'];
+
+    if (type == 'new_message' && data != null) {
+      // Incoming message from another user
+      final fromId = data['fromId'] ?? data['from'] ?? '';
+      final message = Message(
+        id: data['id'] ?? '',
+        from: fromId,
+        text: data['content'] ?? data['text'] ?? '',
+        timestamp: data['timestamp'] is int
+            ? data['timestamp']
+            : DateTime.tryParse(data['timestamp']?.toString() ?? '')
+                  ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+      );
+
+      // Add to the conversation with the sender
+      final contactId = message.from;
+      if (!_messages.containsKey(contactId)) {
+        _messages[contactId] = [];
+      }
+      // Avoid duplicates
+      if (!_messages[contactId]!.any((m) => m.id == message.id)) {
+        _messages[contactId]!.add(message);
+        debugPrint('[WS] Received message from $contactId: ${message.text}');
+        notifyListeners();
+      }
+    } else if (type == 'message_delivered' || type == 'message_read') {
+      debugPrint('[WS] $type: ${data?['messageId']}');
+      notifyListeners();
+    }
+  }
+
+  void disconnectWebSocket() {
+    _wsReconnectTimer?.cancel();
+    _ws?.close();
+    _ws = null;
+  }
+
   final int _privateTtlMs = 30 * 60 * 1000; // 30 minutes
   final String _privateSessionKey = 'private_session_last_v1';
   final String _groupsKey = 'chat_groups_v1';
@@ -226,18 +346,8 @@ class ChatService extends ChangeNotifier {
   Future<void> init() async {
     debugPrint('[ChatService] Initializing ChatService...');
     final prefs = await SharedPreferences.getInstance();
-    // ensure private key exists
-    String? keyB64 = prefs.getString(_privateKeyPref);
-    if (keyB64 == null) {
-      final newKey = await _cipher.newSecretKey();
-      final newKeyData = await newKey.extractBytes();
-      keyB64 = base64Encode(newKeyData);
-      await prefs.setString(_privateKeyPref, keyB64);
-      _secretKey = newKey;
-    } else {
-      final keyBytes = base64Decode(keyB64);
-      _secretKey = SecretKey(keyBytes);
-    }
+    // Key init is handled by _initKey() in constructor — just await it
+    await _initKey();
     
     // Load local contacts first
     final cJson = prefs.getString(_contactsKey);
@@ -256,9 +366,10 @@ class ChatService extends ChangeNotifier {
     
     // Also fetch contacts from API and merge
     try {
+      final headers = await _authHeaders();
       final response = await http.get(
-        Uri.parse('https://web.uponlytech.com/sambad-backend/api/contacts'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${AppConfig.apiBase}/contacts'),
+        headers: headers,
       );
       if (response.statusCode == 200) {
         final List<dynamic> apiContacts = jsonDecode(response.body);
@@ -269,9 +380,13 @@ class ChatService extends ChangeNotifier {
           if (contactUser != null) {
             final username = contactUser['username'] ?? '';
             final contactId = apiContact['id'] ?? '';
-            // Extract phone number from username (e.g., +919876543210 -> 9876543210)
-            final phone = username.replaceAll(RegExp(r'[^\d]'), '').substring(username.replaceAll(RegExp(r'[^\d]'), '').length - 10);
-            final name = phone; // Use phone as name for now
+            // Extract phone number safely — guard against short strings
+            final digitsOnly = username.replaceAll(RegExp(r'[^\d]'), '');
+            final phone = digitsOnly.length >= 10
+                ? digitsOnly.substring(digitsOnly.length - 10)
+                : digitsOnly;
+            if (phone.isEmpty || contactId.isEmpty) continue;
+            final name = phone;
             
             if (!existingIds.contains(contactId)) {
               _contacts.add(Contact(
@@ -402,14 +517,14 @@ class ChatService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       String? currentUserId = prefs.getString('current_user_id');
       
-      if (currentUserId == null) {
-        // Get/create current user (default to 9999999999 for now)
+      if (currentUserId == null && _currentUserPhone != null) {
+        // Get/create current user from stored phone
+        final headers = await _authHeaders();
         final currentUserResponse = await http.post(
-          Uri.parse('https://web.uponlytech.com/sambad-backend/api/users/login'),
-          headers: {'Content-Type': 'application/json'},
+          Uri.parse('${AppConfig.apiBase}/users/login'),
+          headers: headers,
           body: jsonEncode({
-            'mobileNumber': _currentUserPhone ?? '9999999999',
-            'countryCode': '+91',
+            'phone': _currentUserPhone,
           }),
         );
         
@@ -421,27 +536,21 @@ class ChatService extends ChangeNotifier {
       }
       
       if (currentUserId != null) {
-        // Find contact user ID from contacts list
-        final contact = _contacts.firstWhere(
-          (c) => c.id == contactId,
-          orElse: () => Contact(id: contactId, name: '', phone: ''),
-        );
-        
-        // Try to find the contact to get their phone number
+        // Find contact to get their phone number
         final targetContact = _contacts.firstWhere(
           (c) => c.id == contactId,
           orElse: () => Contact(id: contactId, name: '', phone: contactId),
         );
         
         // Send message via API for WebSocket sync
+        final headers = await _authHeaders();
         final messageResponse = await http.post(
-          Uri.parse('https://web.uponlytech.com/sambad-backend/api/messages'),
-          headers: {'Content-Type': 'application/json'},
+          Uri.parse('${AppConfig.apiBase}/messages'),
+          headers: headers,
           body: jsonEncode({
-            'fromUserId': currentUserId,
-            'toUserId': targetContact.phone, // Send phone number, backend will look up UUID
-            'content': text, // Send plain text to backend (encryption is local only)
-            'type': 'text',
+            'fromId': currentUserId,
+            'toId': targetContact.phone,
+            'content': text,
           }),
         );
         
@@ -557,7 +666,7 @@ class ChatService extends ChangeNotifier {
     await prefs.remove(_privateSessionKey);
   }
 
-  /// Called by lifecycle watcher to clear all on leaving app or inactivity
+  /// Called by lifecycle watcher — clear ALL messages for maximum privacy
   void handleAppLifecycle(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
@@ -573,81 +682,38 @@ class ChatService extends ChangeNotifier {
       _contacts.add(contact);
       await _saveContacts();
       notifyListeners();
-      print('[ChatService] Adding contact: $contact');
+      debugPrint('[ChatService] Adding contact: $contact');
     }
   }
 
   Future<void> addContact(Contact contact) async {
-    // Also add contact via API
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserId = prefs.getString('current_user_id');
-      
-      if (currentUserId == null) {
-        // Get/create current user
-        final loginResponse = await http.post(
-          Uri.parse('https://web.uponlytech.com/sambad-backend/api/users/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'mobileNumber': contact.phone,
-            'countryCode': '+91',
-          }),
-        );
-        
-        if (loginResponse.statusCode == 200) {
-          final loginData = jsonDecode(loginResponse.body);
-          final contactUserId = loginData['user']?['id'];
-          
-          // Get current user (default to 9999999999 for now)
-          final currentUserResponse = await http.post(
-            Uri.parse('https://web.uponlytech.com/sambad-backend/api/users/login'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'mobileNumber': _currentUserPhone ?? '9999999999',
-              'countryCode': '+91',
-            }),
-          );
-          
-          if (currentUserResponse.statusCode == 200) {
-            final currentUserData = jsonDecode(currentUserResponse.body);
-            currentUserId = currentUserData['id'];
-            await prefs.setString('current_user_id', currentUserId!);
-            
-            // Add contact via API
-            await http.post(
-              Uri.parse('https://web.uponlytech.com/sambad-backend/api/contacts'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'userId': currentUserId,
-                'contactUserId': contactUserId,
-              }),
-            );
-            debugPrint('[ChatService] Contact added via API: ${contact.phone}');
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[ChatService] Failed to add contact via API: $e');
-      // Continue with local add even if API fails
-    }
-    
     debugPrint('[ChatService] Adding contact: ${contact.toJson()}');
+    
+    // 1. Update UI INSTANTLY
     _contacts.add(contact);
     await _saveContacts();
-    debugPrint(
-      '[ChatService] Contacts after add: \\n${_contacts.map((c) => c.toJson())}',
-    );
+    notifyListeners();
+    debugPrint('[ChatService] Contact added locally — UI updated instantly');
     
-    // Sync to backend via GraphQL
+    // 2. Sync to backend in background (don't block UI)
+    _syncContactToBackend(contact);
+  }
+
+  /// Background sync — runs after UI is already updated
+  Future<void> _syncContactToBackend(Contact contact) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('current_user_id') ?? '11111111-1111-1111-1111-111111111111'; // Default test user
+      final userId = prefs.getString('current_user_id');
+      if (userId == null) {
+        debugPrint('[ChatService] No current user ID, skipping backend sync');
+        return;
+      }
       
       final apiService = ApiService();
       
-      // Get or create contact user first
+      // Get or create contact user
       final contactUserResponse = await apiService.loginUser(contact.phone);
-      final contactUserId = contactUserResponse["id"];
+      final contactUserId = contactUserResponse['id'];
       
       final result = await apiService.createContactChannel(
         userId: userId,
@@ -656,7 +722,7 @@ class ChatService extends ChangeNotifier {
       
       if (result != null) {
         debugPrint('[ChatService] Contact synced to backend: $result');
-        // Push to admin portal for audit/sync
+        // Push to admin portal for audit
         await syncToAdminPortal(
           event: 'add_contact',
           data: {
@@ -665,94 +731,13 @@ class ChatService extends ChangeNotifier {
             'phone': contact.phone,
           },
         );
-      } else {
-        debugPrint('[ChatService] Failed to sync contact to backend');
       }
     } catch (e) {
-      debugPrint('[ChatService] Error syncing contact: $e');
-    }
-    
-    notifyListeners();
-  }
-
-  /// Load contacts from REST API
-  Future<void> _loadContactsFromAPI() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://web.uponlytech.com/sambad-backend/api/contacts'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        _contacts = data.map((contact) {
-          // Convert API contact format to Contact model
-          final contactUser = contact['contact_user']?['username'] ?? '';
-          final contactId = contact['id'] ?? '';
-          // Extract phone number from username (format: +91XXXXXXXXXX)
-          final phone = contactUser.replaceAll('+91', '');
-          // Extract name if available, otherwise use phone
-          final name = contact['contact_user']?['name'] ?? phone;
-          
-          return Contact(
-            id: contactId,
-            name: name,
-            phone: phone,
-          );
-        }).toList();
-        
-        // Save to local storage for offline access
-        await _saveContacts();
-        
-        debugPrint('[ChatService] Loaded ${_contacts.length} contacts from API');
-        notifyListeners();
-      } else {
-        debugPrint('[ChatService] Failed to load contacts from API: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[ChatService] Error loading contacts from API: $e');
-      // Fallback to local storage (handled in init)
+      debugPrint('[ChatService] Background sync error (contact still saved locally): $e');
     }
   }
 
-  /// Fetch contacts from REST API and sync with local storage
-  Future<void> _fetchContactsFromAPI() async {
-    try {
-      debugPrint('[ChatService] Fetching contacts from API...');
-      final response = await http.get(
-        Uri.parse('https://web.uponlytech.com/sambad-backend/api/contacts'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        _contacts = data.map((contact) {
-          // Convert API contact format to Contact model
-          final contactUser = contact['contact_user']?['username'] ?? '';
-          final contactId = contact['id'] ?? '';
-          // Extract phone number from username (format: +91XXXXXXXXXX)
-          final phone = contactUser.replaceAll(RegExp(r'[^\d]'), '');
-          final name = contactUser; // Use username as name for now
-          
-          return Contact(
-            id: contactId,
-            name: name,
-            phone: phone,
-          );
-        }).toList();
-        
-        // Save to local storage for offline access
-        await _saveContacts();
-        debugPrint('[ChatService] Fetched ${_contacts.length} contacts from API');
-        notifyListeners();
-      } else {
-        debugPrint('[ChatService] API fetch failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[ChatService] Error fetching contacts from API: $e');
-      // Continue with local storage if API fails
-    }
-  }
+  // Duplicate _loadContactsFromAPI and _fetchContactsFromAPI removed — contact fetching is handled in init()
 
   Future<void> _saveContacts() async {
     final prefs = await SharedPreferences.getInstance();

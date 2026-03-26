@@ -5,30 +5,8 @@ import 'services/chat_service.dart';
 import 'models/message.dart';
 import 'widgets/message_bubble.dart';
 import 'package:image_picker/image_picker.dart';
+import 'utils/responsive.dart';
 
-// NEW: Home page with groups
-class ChatHomePage extends StatefulWidget {
-  const ChatHomePage({super.key});
-
-  @override
-  State<ChatHomePage> createState() => _ChatHomePageState();
-}
-
-// ...existing code...
-
-class _ChatHomePageState extends State<ChatHomePage> {
-  // Group creation dialog logic is available for integration when needed.
-
-  @override
-  Widget build(BuildContext context) {
-    // ...existing code for your main chat home page UI...
-    return Scaffold(
-      // Example placeholder
-      appBar: AppBar(title: const Text('Chats')),
-      body: Center(child: Text('Chat Home Page')),
-    );
-  }
-}
 
 class ChatPage extends StatefulWidget {
   final String name;
@@ -49,6 +27,36 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
+  List<Message> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Load messages initially and listen for changes
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshMessages());
+    context.read<ChatService>().addListener(_refreshMessages);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scroll.dispose();
+    // Remove listener if still mounted
+    try {
+      context.read<ChatService>().removeListener(_refreshMessages);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  Future<void> _refreshMessages() async {
+    if (!mounted) return;
+    final svc = context.read<ChatService>();
+    final msgs = await svc.messagesFor(_contactId);
+    if (mounted) {
+      setState(() => _messages = msgs);
+    }
+  }
+
   Future<void> _pickAndSendImage({bool fromCamera = false}) async {
     try {
       final ImagePicker imagePicker = ImagePicker();
@@ -119,7 +127,8 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final svc = context.watch<ChatService>();
+    // Still watch for rebuilds (e.g. contact changes), but messages come from cached _messages
+    context.watch<ChatService>();
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)), 
@@ -137,7 +146,7 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -151,10 +160,10 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(width: 12),
             Text(
               widget.name,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: Responsive.fontSize(context, 20),
               ),
             ),
             if (widget.isPrivate && widget.onCall != null) ...[
@@ -176,11 +185,7 @@ class _ChatPageState extends State<ChatPage> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: FutureBuilder<List<Message>>(
-          future: svc.messagesFor(_contactId),
-          builder: (context, snapshot) {
-            final messages = snapshot.data ?? [];
-            return Stack(
+        child: Stack(
               children: [
                 // Main chat area
                 Column(
@@ -188,9 +193,9 @@ class _ChatPageState extends State<ChatPage> {
                     Expanded(
                       child: ListView.builder(
                         controller: _scroll,
-                        itemCount: messages.length,
+                        itemCount: _messages.length,
                         itemBuilder: (context, index) {
-                          final msg = messages[index];
+                          final msg = _messages[index];
                           final isMe = msg.from == 'me';
                           return MessageBubble(message: msg, isMe: isMe);
                         },
@@ -303,7 +308,7 @@ class _ChatPageState extends State<ChatPage> {
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.18),
+                                      color: Colors.black.withValues(alpha: 0.18),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -324,8 +329,8 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 // Arrow button to scroll to bottom
                 Positioned(
-                  right: 16,
-                  bottom: 90,
+                  right: Responsive.horizontal(context, 16),
+                  bottom: Responsive.vertical(context, 90),
                   child: AnimatedBuilder(
                     animation: _scroll,
                     builder: (context, child) {
@@ -351,9 +356,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ),
               ],
-            );
-          },
-        ),
+            ),
       ),
     );
   }

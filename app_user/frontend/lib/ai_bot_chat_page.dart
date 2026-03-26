@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-
-const Color _kPrimaryBlue = Color(0xFF5B7FFF);
-const Color _kBgDark = Color(0xFF181A20);
-const Color _kBgCard = Color(0xFF23272F);
+import 'theme/app_colors.dart';
 
 class AIBotChatPage extends StatefulWidget {
   const AIBotChatPage({super.key});
@@ -58,14 +55,14 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
     // ...AppBar and Scaffold setup unchanged...
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: _kBgCard,
+        backgroundColor: AppColors.bgCard,
         elevation: 0,
         title: Row(
           children: const [
             CircleAvatar(
               radius: 22,
               backgroundColor: Colors.white,
-              child: Icon(Icons.smart_toy, color: _kPrimaryBlue),
+              child: Icon(Icons.smart_toy, color: AppColors.primaryBlue),
             ),
             SizedBox(width: 12),
             Text(
@@ -78,7 +75,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
           ],
         ),
       ),
-      backgroundColor: _kBgDark,
+      backgroundColor: AppColors.bgDark,
       body: Column(
         children: [
           Expanded(
@@ -87,7 +84,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_kBgDark, _kBgCard],
+                  colors: [AppColors.bgDark, AppColors.bgCard],
                 ),
               ),
               child: ListView.builder(
@@ -108,7 +105,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                           backgroundColor: Colors.white,
                           child: Icon(
                             Icons.smart_toy,
-                            color: _kPrimaryBlue,
+                            color: AppColors.primaryBlue,
                             size: 18,
                           ),
                         ),
@@ -121,7 +118,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: isMe ? _kPrimaryBlue : Colors.white10,
+                            color: isMe ? AppColors.primaryBlue : Colors.white10,
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(18),
                               topRight: const Radius.circular(18),
@@ -149,7 +146,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                       if (isMe)
                         CircleAvatar(
                           radius: 16,
-                          backgroundColor: _kPrimaryBlue,
+                          backgroundColor: AppColors.primaryBlue,
                           child: const Icon(
                             Icons.person,
                             color: Colors.white,
@@ -166,7 +163,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: const BoxDecoration(
-              color: _kBgCard,
+              color: AppColors.bgCard,
               border: Border(
                 top: BorderSide(color: Colors.white10),
               ),
@@ -198,7 +195,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: _kPrimaryBlue,
+                      color: AppColors.primaryBlue,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: IconButton(

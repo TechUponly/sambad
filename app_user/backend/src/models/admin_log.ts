@@ -25,6 +25,6 @@ export class AdminLog {
   @CreateDateColumn()
   timestamp: Date;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   details: any;
 }

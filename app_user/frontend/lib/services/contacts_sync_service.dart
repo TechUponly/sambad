@@ -2,9 +2,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import '../config/app_config.dart';
 
 class ContactsSyncService {
-  static const String _baseUrl = 'https://web.uponlytech.com/sambad-backend';
+  static String get _baseUrl => AppConfig.backendBase;
   
   static Future<bool> requestContactsPermission() async {
     return await FlutterContacts.requestPermission();
@@ -13,9 +14,11 @@ class ContactsSyncService {
   static Future<Map<String, dynamic>> syncContacts() async {
     try {
       final contacts = await FlutterContacts.getContacts(withProperties: true);
-      final contactData = contacts.map((c) => {
-        'name': c.displayName, 
-        'phone': c.phones.isNotEmpty ? c.phones.first.number : ''
+      final contactData = contacts.map((c) {
+        return <String, dynamic>{
+          'name': c.displayName, 
+          'phone': c.phones.isNotEmpty ? c.phones.first.number : '',
+        };
       }).toList();
       
       final prefs = await SharedPreferences.getInstance();

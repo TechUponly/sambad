@@ -1,15 +1,18 @@
+import 'dotenv/config';
 import 'reflect-metadata';
+import './firebase-init';
 import express from 'express';
 import adminRoutes from './admin-routes';
 import cors from 'cors';
 import { AppDataSource } from './db';
-import { initWebSocketServer } from './websocket';
+import { initWebSocketServer, emitMessageToRecipient, isUserOnline, getOnlineUserIds, sendToUser } from './websocket';
+import { authenticateUser } from './middleware/auth';
 
 console.log("DEBUG: Starting server, about to initialize DataSource...");
 
 AppDataSource.initialize()
   .then(async () => {
-    console.log('Connected to PostgreSQL database: sambad');
+    console.log('Connected to database');
     console.log('Entities loaded:', AppDataSource.entityMetadatas.map(m => m.name).join(', '));
 
     const app = express();
@@ -20,11 +23,24 @@ AppDataSource.initialize()
       res.send('<h1>Sambad Unified Backend</h1><p>Database: PostgreSQL</p>');
     });
 
+    // Public endpoints (no auth required)
+    // Login and health are open
+
+    // Apply auth middleware to all /api/* routes EXCEPT login and health
+    app.use('/api', (req, res, next) => {
+      // Skip auth for login, health, and root
+      const openPaths = ['/users/login', '/health'];
+      if (openPaths.some(p => req.path === p)) return next();
+      return authenticateUser(req, res, next);
+    });
+
     // GET endpoints
     app.get('/api/users', async (req, res) => {
       try {
         const userRepo = AppDataSource.getRepository('User');
-        const users = await userRepo.find();
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+        const offset = parseInt(req.query.offset as string) || 0;
+        const users = await userRepo.find({ take: limit, skip: offset });
         res.json(users);
       } catch (error) {
         console.error('Error:', error);
@@ -35,24 +51,149 @@ AppDataSource.initialize()
     app.get('/api/contacts', async (req, res) => {
       try {
         const contactRepo = AppDataSource.getRepository('Contact');
-        const contacts = await contactRepo.find();
-        res.json(contacts);
+        const userId = req.query.userId as string | undefined;
+        
+        if (userId) {
+          const contacts = await contactRepo.find({
+            where: { userId },
+            relations: ['user'],
+          });
+          return res.json(contacts);
+        }
+        
+        // No userId — return empty (don't leak all contacts)
+        res.json([]);
       } catch (error) {
-        res.status(500).json({ error: 'Failed' });
+        console.error('Error fetching contacts:', error);
+        res.status(500).json({ error: 'Failed to fetch contacts' });
       }
     });
 
     app.get('/api/messages', async (req, res) => {
       try {
         const messageRepo = AppDataSource.getRepository('Message');
-        const messages = await messageRepo.find();
-        res.json(messages);
+        const userId = req.query.userId as string | undefined;
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+        const offset = parseInt(req.query.offset as string) || 0;
+        
+        if (userId) {
+          const messages = await messageRepo
+            .createQueryBuilder('message')
+            .where('message.fromId = :userId OR message.toId = :userId', { userId })
+            .orderBy('message.timestamp', 'DESC')
+            .skip(offset)
+            .take(limit)
+            .getMany();
+          return res.json(messages);
+        }
+        
+        // No userId — return empty (don't expose all messages)
+        res.json([]);
       } catch (error) {
-        res.status(500).json({ error: 'Failed' });
+        console.error('Error fetching messages:', error);
+        res.status(500).json({ error: 'Failed to fetch messages' });
       }
     });
 
-    // POST endpoints
+    // Get undelivered messages for a user
+    app.get('/api/messages/undelivered/:userId', async (req, res) => {
+      try {
+        const messageRepo = AppDataSource.getRepository('Message');
+        const messages = await messageRepo
+          .createQueryBuilder('message')
+          .where('message.toId = :userId', { userId: req.params.userId })
+          .andWhere('message.status = :status', { status: 'sent' })
+          .orderBy('message.timestamp', 'ASC')
+          .getMany();
+        res.json(messages);
+      } catch (error) {
+        console.error('Error fetching undelivered messages:', error);
+        res.status(500).json({ error: 'Failed to fetch undelivered messages' });
+      }
+    });
+
+    // Mark message as delivered
+    app.put('/api/messages/:id/delivered', async (req, res) => {
+      try {
+        const messageRepo = AppDataSource.getRepository('Message');
+        const message = await messageRepo.findOne({ where: { id: req.params.id } });
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+        if (message.status === 'read') return res.json(message); // already read, don't downgrade
+        
+        message.status = 'delivered';
+        message.delivered_at = new Date();
+        const updated = await messageRepo.save(message);
+        
+        // Notify sender about delivery
+        if (message.fromId) {
+          sendToUser(message.fromId, 'message_delivered', {
+            messageId: message.id,
+            delivered_at: message.delivered_at
+          });
+        }
+        
+        res.json(updated);
+      } catch (error) {
+        console.error('Error marking delivered:', error);
+        res.status(500).json({ error: 'Failed to mark as delivered' });
+      }
+    });
+
+    // Mark message as read
+    app.put('/api/messages/:id/read', async (req, res) => {
+      try {
+        const messageRepo = AppDataSource.getRepository('Message');
+        const message = await messageRepo.findOne({ where: { id: req.params.id } });
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+        
+        message.status = 'read';
+        if (!message.delivered_at) message.delivered_at = new Date();
+        message.read_at = new Date();
+        const updated = await messageRepo.save(message);
+        
+        // Notify sender about read receipt
+        if (message.fromId) {
+          sendToUser(message.fromId, 'message_read', {
+            messageId: message.id,
+            read_at: message.read_at
+          });
+        }
+        
+        res.json(updated);
+      } catch (error) {
+        console.error('Error marking read:', error);
+        res.status(500).json({ error: 'Failed to mark as read' });
+      }
+    });
+
+    // User online/offline status
+    app.get('/api/users/online', async (req, res) => {
+      try {
+        const onlineIds = getOnlineUserIds();
+        const userRepo = AppDataSource.getRepository('User');
+        
+        if (onlineIds.length === 0) {
+          return res.json([]);
+        }
+        
+        const users = await userRepo
+          .createQueryBuilder('user')
+          .where('user.id IN (:...ids)', { ids: onlineIds })
+          .getMany();
+        
+        res.json(users.map(u => ({
+          id: u.id,
+          phone: u.phone,
+          name: u.name,
+          online: true,
+          last_active_at: u.last_active_at
+        })));
+      } catch (error) {
+        console.error('Error fetching online users:', error);
+        res.status(500).json({ error: 'Failed to fetch online users' });
+      }
+    });
+
     // POST endpoints
     app.post('/api/contacts', async (req, res) => {
       try {
@@ -96,16 +237,72 @@ AppDataSource.initialize()
     app.post('/api/users/login', async (req, res) => {
       try {
         const userRepo = AppDataSource.getRepository('User');
-        const { phone } = req.body;
+        const { phone, name } = req.body;
         let user = await userRepo.findOne({ where: { phone } });
         if (!user) {
-          user = userRepo.create({ phone, status: 'active' });
+          user = userRepo.create({ phone, name: name || null, status: 'active' });
+          user = await userRepo.save(user);
+        } else if (name && !user.name) {
+          // Update name if user exists but has no name set
+          user.name = name;
           user = await userRepo.save(user);
         }
         res.json(user);
       } catch (error) {
         console.error('Error in login:', error);
         res.status(500).json({ error: 'Login failed' });
+      }
+    });
+
+    // Get single user by ID
+    app.get('/api/users/:id', async (req, res) => {
+      try {
+        const userRepo = AppDataSource.getRepository('User');
+        const user = await userRepo.findOne({ where: { id: req.params.id } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({
+          ...user,
+          online: isUserOnline(user.id)
+        });
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({ error: 'Failed to fetch user' });
+      }
+    });
+
+    // Get user online/offline status
+    app.get('/api/users/:id/status', async (req, res) => {
+      try {
+        const userRepo = AppDataSource.getRepository('User');
+        const user = await userRepo.findOne({ where: { id: req.params.id } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({
+          id: user.id,
+          online: isUserOnline(user.id),
+          last_active_at: user.last_active_at
+        });
+      } catch (error) {
+        console.error('Error fetching user status:', error);
+        res.status(500).json({ error: 'Failed to fetch user status' });
+      }
+    });
+
+    // Update user profile (name, email, etc.)
+    app.put('/api/users/:id', async (req, res) => {
+      try {
+        const userRepo = AppDataSource.getRepository('User');
+        const user = await userRepo.findOne({ where: { id: req.params.id } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        if (req.body.name !== undefined) user.name = req.body.name;
+        if (req.body.email !== undefined) user.email = req.body.email;
+        user.last_active_at = new Date();
+        
+        const updated = await userRepo.save(user);
+        res.json(updated);
+      } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ error: 'Failed to update user' });
       }
     });
 
@@ -126,9 +323,12 @@ AppDataSource.initialize()
           content: req.body.content,
           fromId: req.body.fromUserId || req.body.fromId,
           toId: toId,
-          timestamp: new Date()
         });
         const saved = await messageRepo.save(message);
+        
+        // Push message to recipient via WebSocket
+        emitMessageToRecipient(saved);
+        
         res.status(201).json(saved);
       } catch (error) {
         console.error('Error saving message:', error);
@@ -149,6 +349,11 @@ AppDataSource.initialize()
         
         // Find which contacts are registered Sambad users
         const phones = contacts.map(c => c.phone).filter(p => p);
+        
+        if (phones.length === 0) {
+          return res.json({ success: true, totalContacts: contacts.length, sambadUsers: [] });
+        }
+        
         const registeredUsers = await userRepo
           .createQueryBuilder('user')
           .where('user.phone IN (:...phones)', { phones })
@@ -186,4 +391,3 @@ AppDataSource.initialize()
     process.exit(1);
   });
 
-// Import admin routes

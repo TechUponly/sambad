@@ -6,10 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import 'services/chat_service.dart';
 import 'screens/login_screen.dart';
-
-const Color kPrimaryBlue = Color(0xFF5B7FFF);
-const Color kBgDark = Color(0xFF181A20);
-const Color kBgCard = Color(0xFF23272F);
+import 'theme/app_colors.dart';
+import 'utils/responsive.dart';
 
 class ProfileSectionPage extends StatefulWidget {
   const ProfileSectionPage({super.key});
@@ -29,6 +27,13 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   void initState() {
     super.initState();
     _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _ageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -54,12 +59,14 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_name', _nameController.text.trim());
+    final name = _nameController.text.trim();
+    await prefs.setString('profile_name', name);
+    await prefs.setString('current_user_name', name);
     await prefs.setString('profile_age', _ageController.text.trim());
     await prefs.setString('profile_gender', _gender ?? '');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile saved!'), backgroundColor: kPrimaryBlue),
+      const SnackBar(content: Text('Profile saved!'), backgroundColor: AppColors.primaryBlue),
     );
   }
 
@@ -67,7 +74,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kBgCard,
+        backgroundColor: AppColors.bgCard,
         title: const Text('Delete Account?', style: TextStyle(color: Colors.white)),
         content: const Text('This will delete all your data permanently.', style: TextStyle(color: Colors.white70)),
         actions: [
@@ -77,18 +84,22 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
       ),
     );
     if (confirm != true) return;
+    if (!mounted) return;
     await context.read<ChatService>().purgePrivateMessages();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kBgCard,
+        backgroundColor: AppColors.bgCard,
         title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
         content: const Text('Are you sure?', style: TextStyle(color: Colors.white70)),
         actions: [
@@ -98,6 +109,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
       ),
     );
     if (confirm != true) return;
+    if (!mounted) return;
     await context.read<ChatService>().purgePrivateMessages();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -113,14 +125,14 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile', style: TextStyle(color: Colors.white)),
-        backgroundColor: kBgCard,
+        title: Text('Profile', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 20))),
+        backgroundColor: AppColors.bgCard,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      backgroundColor: kBgDark,
+      backgroundColor: AppColors.bgDark,
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: Responsive.paddingAll(context, 20),
         child: Form(
           key: _formKey,
           child: Column(
@@ -130,39 +142,39 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                 child: Stack(
                   children: [
                     CircleAvatar(
-                      radius: 50,
-                      backgroundColor: kPrimaryBlue,
+                      radius: Responsive.size(context, 50),
+                      backgroundColor: AppColors.primaryBlue,
                       backgroundImage: _profilePicPath != null ? FileImage(File(_profilePicPath!)) : null,
                       child: _profilePicPath == null
-                          ? Text(_nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : 'U', style: const TextStyle(fontSize: 40, color: Colors.white))
+                          ? Text(_nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : 'U', style: TextStyle(fontSize: Responsive.fontSize(context, 40), color: Colors.white))
                           : null,
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: kPrimaryBlue, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                        padding: Responsive.paddingAll(context, 6),
+                        decoration: const BoxDecoration(color: AppColors.primaryBlue, shape: BoxShape.circle),
+                        child: Icon(Icons.camera_alt, size: Responsive.size(context, 16), color: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: Responsive.vertical(context, 30)),
               TextField(
                 controller: _nameController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Name',
                   labelStyle: const TextStyle(color: Colors.white60),
-                  prefixIcon: const Icon(Icons.person, color: kPrimaryBlue),
+                  prefixIcon: const Icon(Icons.person, color: AppColors.primaryBlue),
                   filled: true,
-                  fillColor: kBgCard,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  fillColor: AppColors.bgCard,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)), borderSide: BorderSide.none),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Responsive.vertical(context, 16)),
               TextField(
                 controller: _ageController,
                 keyboardType: TextInputType.number,
@@ -170,48 +182,48 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                 decoration: InputDecoration(
                   labelText: 'Age',
                   labelStyle: const TextStyle(color: Colors.white60),
-                  prefixIcon: const Icon(Icons.cake, color: kPrimaryBlue),
+                  prefixIcon: const Icon(Icons.cake, color: AppColors.primaryBlue),
                   filled: true,
-                  fillColor: kBgCard,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  fillColor: AppColors.bgCard,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)), borderSide: BorderSide.none),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Responsive.vertical(context, 16)),
               DropdownButtonFormField<String>(
-                value: _gender,
-                dropdownColor: kBgCard,
+                initialValue: _gender,
+                dropdownColor: AppColors.bgCard,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Gender',
                   labelStyle: const TextStyle(color: Colors.white60),
-                  prefixIcon: const Icon(Icons.wc, color: kPrimaryBlue),
+                  prefixIcon: const Icon(Icons.wc, color: AppColors.primaryBlue),
                   filled: true,
-                  fillColor: kBgCard,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  fillColor: AppColors.bgCard,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)), borderSide: BorderSide.none),
                 ),
                 items: ['Male', 'Female', 'Other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                 onChanged: (v) => setState(() => _gender = v),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: Responsive.vertical(context, 24)),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: Responsive.size(context, 50),
                 child: ElevatedButton(
                   onPressed: _saveProfile,
-                  style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Save Profile', style: TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
+                  child: Text('Save Profile', style: TextStyle(fontSize: Responsive.fontSize(context, 16))),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: Responsive.vertical(context, 16)),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: Responsive.size(context, 50),
                 child: OutlinedButton.icon(
                   onPressed: () {
                     showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        backgroundColor: kBgCard,
+                        backgroundColor: AppColors.bgCard,
                         title: const Text('Privacy & Security', style: TextStyle(color: Colors.white)),
                         content: const Text(
                           'Your chats are end-to-end encrypted. Only you and your contacts can read your messages. We do not store your messages on our servers.',
@@ -220,55 +232,48 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Got it', style: TextStyle(color: kPrimaryBlue)),
+                            child: const Text('Got it', style: TextStyle(color: AppColors.primaryBlue)),
                           ),
                         ],
                       ),
                     );
                   },
-                  icon: const Icon(Icons.security, color: kPrimaryBlue),
-                  label: const Text('Privacy & Security', style: TextStyle(fontSize: 16, color: kPrimaryBlue)),
+                  icon: const Icon(Icons.security, color: AppColors.primaryBlue),
+                  label: Text('Privacy & Security', style: TextStyle(fontSize: Responsive.fontSize(context, 16), color: AppColors.primaryBlue)),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: kPrimaryBlue, width: 2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: const BorderSide(color: AppColors.primaryBlue, width: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
                   ),
                 ),
               ),
               const Spacer(),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: Responsive.size(context, 50),
                 child: OutlinedButton(
                   onPressed: _signOut,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: kPrimaryBlue, width: 2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: const BorderSide(color: AppColors.primaryBlue, width: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
                   ),
-                  child: const Text('Sign Out', style: TextStyle(fontSize: 16, color: kPrimaryBlue)),
+                  child: Text('Sign Out', style: TextStyle(fontSize: Responsive.fontSize(context, 16), color: AppColors.primaryBlue)),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: Responsive.vertical(context, 12)),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: Responsive.size(context, 50),
                 child: ElevatedButton(
                   onPressed: _deleteAccount,
-                  style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Delete Account', style: TextStyle(fontSize: 16, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
+                  child: Text('Delete Account', style: TextStyle(fontSize: Responsive.fontSize(context, 16), color: Colors.white)),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: Responsive.vertical(context, 20)),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _ageController.dispose();
-    super.dispose();
   }
 }

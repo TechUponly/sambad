@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ConsentScreen extends StatelessWidget {
-  const ConsentScreen({Key? key}) : super(key: key);
+  const ConsentScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -24,11 +24,11 @@ class ConsentScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),

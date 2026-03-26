@@ -1,0 +1,2 @@
+/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/.cxx/debug/5h6k141n/armeabi-v7a/CMakeFiles/edit_cache.dir
+/Users/shamrai/Desktop/sambad_fresh/app_user/frontend/build_out/.cxx/debug/5h6k141n/armeabi-v7a/CMakeFiles/rebuild_cache.dir

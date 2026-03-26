@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/message.dart';
+import '../utils/responsive.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -43,15 +44,16 @@ class MessageBubble extends StatelessWidget {
           );
     final textColor = Colors.white;
 
+    final maxBubbleWidth = Responsive.widthPercent(context, 0.75);
     return AnimatedAlign(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          margin: Responsive.paddingSymmetric(context, v: 8, h: 8),
+          padding: Responsive.paddingSymmetric(context, h: 16, v: 14),
           decoration: BoxDecoration(
             gradient: bg,
             borderRadius: isMe
@@ -67,7 +69,7 @@ class MessageBubble extends StatelessWidget {
                   ),
             boxShadow: [
               BoxShadow(
-                color: isMe ? const Color(0xFF00FFC2).withOpacity(0.18) : Colors.black.withOpacity(0.18),
+                color: isMe ? const Color(0xFF00FFC2).withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.18),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -92,7 +94,7 @@ class MessageBubble extends StatelessWidget {
                         color: textColor,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'Montserrat',
-                        fontSize: 16,
+                        fontSize: Responsive.fontSize(context, 16),
                         letterSpacing: 0.1,
                         shadows: isMe
                             ? [const Shadow(color: Colors.white24, blurRadius: 2)]
@@ -109,8 +111,8 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     _formatTime(message.timestamp),
                     style: TextStyle(
-                      color: isMe ? Colors.black54 : Colors.white54,
-                      fontSize: 11,
+                      color: isMe ? Colors.white60 : Colors.white54,
+                      fontSize: Responsive.fontSize(context, 11),
                       fontWeight: FontWeight.w500,
                     ),
                   ),

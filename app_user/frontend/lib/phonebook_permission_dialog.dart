@@ -20,12 +20,12 @@ class PhonebookPermissionDialog extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.18),
+              color: Colors.black.withValues(alpha: 0.18),
               blurRadius: 32,
               offset: const Offset(0, 8),
             ),
           ],
-          border: Border.all(color: Color(0xFF00FFC2).withOpacity(0.18), width: 1.5),
+          border: Border.all(color: Color(0xFF00FFC2).withValues(alpha: 0.18), width: 1.5),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
         child: Column(
@@ -57,7 +57,7 @@ class PhonebookPermissionDialog extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     elevation: 6,
-                    shadowColor: const Color(0xFF00FFC2).withOpacity(0.18),
+                    shadowColor: const Color(0xFF00FFC2).withValues(alpha: 0.18),
                   ),
                   child: const Text('Allow'),
                 ),

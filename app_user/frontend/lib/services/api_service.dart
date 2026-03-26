@@ -1,10 +1,24 @@
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
-/// Production backend URL - DO NOT change without updating deployment
 class ApiService {
-  static const String baseUrl = 'https://web.uponlytech.com/sambad-backend/api';
+  static String get baseUrl => AppConfig.apiBase;
   
-  final Dio _dio = Dio();
+  final Dio _dio;
+
+  ApiService() : _dio = Dio() {
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('firebase_token');
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+    ));
+  }
 
   Future<dynamic> get(String endpoint) async {
     final response = await _dio.get('$baseUrl/$endpoint');

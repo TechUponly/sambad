@@ -19,7 +19,7 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    print('Firebase initialization error: $e');
+    debugPrint('Firebase initialization error: $e');
   }
 
   // Disable App Check temporarily to prevent crashes
@@ -49,7 +49,7 @@ Future<void> main() async {
     ChangeNotifierProvider(
       create: (_) {
         final svc = ChatService();
-        svc.init();
+        svc.init(); // Async init — loads contacts, messages, keys in background
         return svc;
       },
       child: MyApp(isLoggedIn: isLoggedIn),

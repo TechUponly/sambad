@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/contact.dart';
 import 'package:provider/provider.dart';
 import '../services/chat_service.dart';
+import '../theme/app_colors.dart';
+import '../utils/responsive.dart';
 
 class ContactTile extends StatelessWidget {
   final Contact contact;
@@ -16,17 +18,17 @@ class ContactTile extends StatelessWidget {
     final isBlocked = svc.blockedContacts.contains(contact.id);
     return ListTile(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      contentPadding: Responsive.paddingSymmetric(context, v: 6, h: 8),
       leading: CircleAvatar(
-        radius: 26,
-        backgroundColor: Colors.white,
+        radius: Responsive.size(context, 26),
+        backgroundColor: AppColors.avatarColor(contact.name),
         child: Text(
-          contact.name.isNotEmpty ? contact.name.substring(0, 1) : '?',
-          style: const TextStyle(color: Colors.black87),
+          contact.name.isNotEmpty ? contact.name.substring(0, 1).toUpperCase() : '?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 16)),
         ),
       ),
-      title: Text(contact.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-      subtitle: Text(contact.phone, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      title: Text(contact.name, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
+      subtitle: Text(contact.phone, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -56,12 +58,12 @@ class ContactTile extends StatelessWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.18),
+                            color: Colors.black.withValues(alpha: 0.18),
                             blurRadius: 32,
                             offset: const Offset(0, 8),
                           ),
                         ],
-                        border: Border.all(color: Colors.redAccent.withOpacity(0.18), width: 1.5),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.18), width: 1.5),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
                       child: Column(
@@ -90,7 +92,7 @@ class ContactTile extends StatelessWidget {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                   elevation: 6,
-                                  shadowColor: Colors.redAccent.withOpacity(0.18),
+                                  shadowColor: Colors.redAccent.withValues(alpha: 0.18),
                                 ),
                                 child: const Text('Delete'),
                               ),

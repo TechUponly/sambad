@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { User } from './user';
 
 @Entity('message')
@@ -9,8 +9,17 @@ export class Message {
   @Column()
   content: string;
 
-  @Column()
-  timestamp: string;
+  @CreateDateColumn()
+  timestamp: Date;
+
+  @Column({ default: 'sent' })
+  status: string; // 'sent' | 'delivered' | 'read'
+
+  @Column({ type: 'timestamp', nullable: true })
+  delivered_at: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  read_at: Date | null;
 
   @Column({ type: 'uuid', nullable: true })
   fromId: string | null;
