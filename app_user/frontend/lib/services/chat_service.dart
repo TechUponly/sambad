@@ -38,6 +38,16 @@ class ChatService extends ChangeNotifier {
   Map<String, dynamic>? _adminSettings;
   final String _adminApiBase = AppConfig.adminBase;
 
+  // Cached app config (invite text, etc.) — fetched from backend
+  Map<String, dynamic> _appConfig = {};
+
+  /// The invite text to share — from backend or hardcoded fallback
+  String get inviteText => _appConfig['invite_text'] as String? ??
+      '🔒 Join me on Private Sambad — the secure messaging app!\n\n'
+      '📱 Download now:\n'
+      '▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n'
+      '🍎 iOS: https://apps.apple.com/app/private-sambad/id6744640580';
+
   /// Get auth headers for all HTTP calls
   Future<Map<String, String>> _authHeaders() async {
     final prefs = await SharedPreferences.getInstance();
@@ -83,6 +93,21 @@ class ChatService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('[AdminSync] Error fetching settings: $e');
+    }
+  }
+
+  /// Fetch app config (invite text, links, etc.) from the user backend
+  Future<void> fetchAppConfig() async {
+    try {
+      final uri = Uri.parse('${AppConfig.apiBase}/app-config');
+      final resp = await http.get(uri, headers: {'Content-Type': 'application/json'});
+      if (resp.statusCode == 200) {
+        _appConfig = jsonDecode(resp.body) as Map<String, dynamic>;
+        debugPrint('[AppConfig] Loaded: ${_appConfig.keys.toList()}');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[AppConfig] Error fetching config: $e');
     }
   }
 
@@ -269,6 +294,7 @@ class ChatService extends ChangeNotifier {
     _initKey();
     _resetInactivityTimer();
     fetchAdminSettings().then((_) => _applyAdminSettings());
+    fetchAppConfig();
   }
 
   void _applyAdminSettings() {

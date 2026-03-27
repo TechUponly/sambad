@@ -29,7 +29,7 @@ AppDataSource.initialize()
     // Apply auth middleware to all /api/* routes EXCEPT login and health
     app.use('/api', (req, res, next) => {
       // Skip auth for login, health, and root
-      const openPaths = ['/users/login', '/health'];
+      const openPaths = ['/users/login', '/health', '/app-config'];
       if (openPaths.some(p => req.path === p)) return next();
       return authenticateUser(req, res, next);
     });
@@ -377,6 +377,52 @@ AppDataSource.initialize()
 
     app.get('/api/health', (req, res) => {
       res.json({ status: 'healthy', database: 'connected' });
+    });
+
+    // ── App Config (public, no auth) ──────────────────────────────
+    // Returns client-configurable values so the app doesn't need an update
+    app.get('/api/app-config', async (req, res) => {
+      try {
+        const settingRepo = AppDataSource.getRepository('Setting');
+        const rows = await settingRepo.find();
+        const config: Record<string, string> = {};
+        for (const row of rows) {
+          config[(row as any).key] = (row as any).value;
+        }
+
+        // Defaults (used when keys are missing from DB)
+        const defaults: Record<string, string> = {
+          invite_text: '🔒 Join me on Private Sambad — the secure messaging app!\n\n📱 Download now:\n▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n🍎 iOS: https://apps.apple.com/app/private-sambad/id6744640580',
+        };
+
+        res.json({ ...defaults, ...config });
+      } catch (error) {
+        console.error('Error fetching app config:', error);
+        res.status(500).json({ error: 'Failed to fetch app config' });
+      }
+    });
+
+    // Admin: update a config key
+    app.put('/api/app-config', async (req, res) => {
+      try {
+        const settingRepo = AppDataSource.getRepository('Setting');
+        const { key, value } = req.body;
+        if (!key || value === undefined) {
+          return res.status(400).json({ error: 'key and value are required' });
+        }
+
+        let setting = await settingRepo.findOne({ where: { key } }) as any;
+        if (setting) {
+          setting.value = value;
+        } else {
+          setting = settingRepo.create({ key, value });
+        }
+        const saved = await settingRepo.save(setting);
+        res.json(saved);
+      } catch (error) {
+        console.error('Error updating app config:', error);
+        res.status(500).json({ error: 'Failed to update config' });
+      }
     });
 
     app.use('/api/admin', adminRoutes);

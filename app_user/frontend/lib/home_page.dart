@@ -152,7 +152,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 children: [
                   _buildActionButton(icon: Icons.person_add_outlined, label: 'Add Contact', onTap: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); }),
                   _buildActionButton(icon: Icons.group_add_outlined, label: 'New Group', onTap: () => _createGroup(context)),
-                  _buildActionButton(icon: Icons.share_outlined, label: 'Invite Friends', onTap: () async { await Share.share('Join me on Sambad! Secure messaging app. Download now!'); }),
+                  _buildActionButton(icon: Icons.share_outlined, label: 'Invite Friends', onTap: () async {
+                    try {
+                      final chatService = context.read<ChatService>();
+                      await Share.share(chatService.inviteText);
+                    } catch (_) {}
+                  }),
                 ],
               ),
             ),
