@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'home_page.dart';
-import 'social_login_buttons.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -312,8 +311,8 @@ class _LoginPageState extends State<LoginPage> {
                           ],
                         ),
                         const SizedBox(height: 22),
-                        // Social login buttons
-                        SocialLoginButtons(),
+                        // Social login buttons placeholder
+                        const Text('Social Login', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 14)),
                         const SizedBox(height: 22),
                         const Text('By continuing, you agree to the Privacy Policy.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 13)),
                       ],

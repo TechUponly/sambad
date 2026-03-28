@@ -9,6 +9,7 @@ import { Message } from './models/message';
 import { AdminUser } from './models/admin_user';
 import { AdminLog } from './models/admin_log';
 import { Setting } from './models/setting';
+import { Notification } from './models/notification';
 
 // Use SQLite for development, PostgreSQL for production
 const useSqlite = process.env.DB_TYPE === 'sqlite' || !process.env.DB_HOST || process.env.DB_HOST === 'localhost' && !process.env.DB_USER;
@@ -28,7 +29,7 @@ export const AppDataSource = new DataSource({
   }),
   synchronize: true, // Auto-create tables for SQLite dev
   logging: process.env.NODE_ENV !== 'production',
-  entities: [User, Contact, Group, GroupMember, Message, AdminUser, AdminLog, Setting],
+  entities: [User, Contact, Group, GroupMember, Message, AdminUser, AdminLog, Setting, Notification],
   migrations: ['src/migration/**/*.ts'],
   namingStrategy: new SnakeNamingStrategy(),
 });

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../config/app_config.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
@@ -108,6 +109,38 @@ class ChatService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('[AppConfig] Error fetching config: $e');
+    }
+  }
+
+  /// Register FCM token with backend for push notifications
+  Future<void> registerFcmToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('current_user_id');
+      if (userId == null || userId.isEmpty) {
+        debugPrint('[FCM] No user ID — skipping token registration');
+        return;
+      }
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) {
+        debugPrint('[FCM] Could not get FCM token');
+        return;
+      }
+      debugPrint('[FCM] Token: ${token.substring(0, 20)}...');
+      final uri = Uri.parse('${AppConfig.apiBase}/users/fcm-token');
+      final headers = await _authHeaders();
+      final resp = await http.post(
+        uri,
+        body: jsonEncode({'userId': userId, 'fcm_token': token}),
+        headers: headers,
+      );
+      if (resp.statusCode == 200) {
+        debugPrint('[FCM] Token registered successfully');
+      } else {
+        debugPrint('[FCM] Token registration failed: ${resp.statusCode} ${resp.body}');
+      }
+    } catch (e) {
+      debugPrint('[FCM] Error registering token: $e');
     }
   }
 
@@ -295,6 +328,7 @@ class ChatService extends ChangeNotifier {
     _resetInactivityTimer();
     fetchAdminSettings().then((_) => _applyAdminSettings());
     fetchAppConfig();
+    registerFcmToken();
   }
 
   void _applyAdminSettings() {

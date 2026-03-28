@@ -8,6 +8,7 @@ import 'config_screen.dart';
 import 'rights_screen.dart';
 import 'audit_screen.dart';
 import 'analytics_screen.dart';
+import 'notifications_screen.dart';
 import 'logout_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
@@ -42,6 +43,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final List<_SidebarItem> _sidebarItems = [
     _SidebarItem('Dashboard', Icons.dashboard),
     _SidebarItem('Users', Icons.people),
+    _SidebarItem('Notifications', Icons.notifications_active),
     _SidebarItem('Analytics', Icons.analytics),
     _SidebarItem('Profile', Icons.person),
     _SidebarItem('Settings', Icons.settings),
@@ -57,17 +59,19 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         return _DashboardContent();
       case 1:
         return _UsersContent();
-        return AnalyticsScreen();
-        return Center(child: Text('Analytics Page', style: Theme.of(context).textTheme.headlineMedium));
+      case 2:
+        return const NotificationsScreen();
       case 3:
-        return ProfileScreen();
+        return AnalyticsScreen();
       case 4:
-        return SettingsScreen();
+        return ProfileScreen();
       case 5:
-        return ConfigScreen();
+        return SettingsScreen();
       case 6:
-        return RightsScreen();
+        return ConfigScreen();
       case 7:
+        return RightsScreen();
+      case 8:
         return AuditScreen();
       default:
         return Center(child: Text('Unknown Section'));

@@ -22,4 +22,7 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   last_active_at: Date | null;
+
+  @Column({ nullable: true })
+  fcm_token: string;
 }

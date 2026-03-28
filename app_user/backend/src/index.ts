@@ -254,6 +254,25 @@ AppDataSource.initialize()
       }
     });
 
+    // Save FCM token for push notifications
+    app.post('/api/users/fcm-token', async (req, res) => {
+      try {
+        const userRepo = AppDataSource.getRepository('User');
+        const { userId, fcm_token } = req.body;
+        if (!userId || !fcm_token) {
+          return res.status(400).json({ error: 'userId and fcm_token are required' });
+        }
+        const user = await userRepo.findOne({ where: { id: userId } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        (user as any).fcm_token = fcm_token;
+        await userRepo.save(user);
+        res.json({ success: true });
+      } catch (error) {
+        console.error('Error saving FCM token:', error);
+        res.status(500).json({ error: 'Failed to save FCM token' });
+      }
+    });
+
     // Get single user by ID
     app.get('/api/users/:id', async (req, res) => {
       try {

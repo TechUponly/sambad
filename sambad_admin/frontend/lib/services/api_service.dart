@@ -38,4 +38,24 @@ class ApiService {
     final response = await _dio.get('$baseUrl/users/$userId/location');
     return response.data;
   }
+
+  Future<Map<String, dynamic>> sendNotification({
+    required String title,
+    required String body,
+    String audience = 'all',
+    List<String>? targetUserIds,
+  }) async {
+    final response = await _dio.post('$baseUrl/notifications/send', data: {
+      'title': title,
+      'body': body,
+      'audience': audience,
+      if (targetUserIds != null) 'target_user_ids': targetUserIds,
+    });
+    return response.data;
+  }
+
+  Future<List<dynamic>> fetchNotifications() async {
+    final response = await _dio.get('$baseUrl/notifications');
+    return response.data;
+  }
 }

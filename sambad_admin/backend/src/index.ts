@@ -174,6 +174,40 @@ app.get('/contacts', async (req, res) => {
   }
 });
 
+// ============================================
+// NOTIFICATION ENDPOINTS
+// ============================================
+
+// Send push notification (proxies to user backend admin route)
+app.post('/notifications/send', async (req, res) => {
+  try {
+    const response = await axios.post(`${USER_BACKEND}/admin/notifications/send`, req.body);
+    res.json(response.data);
+  } catch (e) {
+    const err = e as any;
+    console.error('Notification send error:', err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ 
+      error: 'Failed to send notification', 
+      details: err.response?.data || err.message 
+    });
+  }
+});
+
+// List sent notifications
+app.get('/notifications', async (req, res) => {
+  try {
+    const response = await axios.get(`${USER_BACKEND}/admin/notifications`);
+    res.json(response.data);
+  } catch (e) {
+    const err = e as any;
+    console.error('Notifications list error:', err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ 
+      error: 'Failed to fetch notifications', 
+      details: err.response?.data || err.message 
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Admin backend listening on port ${PORT}`);
