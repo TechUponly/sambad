@@ -1,7 +1,7 @@
 name: Deploy Sambad Backend
 on:
   push:
-    branches: [main, shambad1]
+    branches: [shambad1]
   workflow_dispatch:
 jobs:
   deploy-backend:
