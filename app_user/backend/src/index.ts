@@ -26,11 +26,13 @@ AppDataSource.initialize()
     // Public endpoints (no auth required)
     // Login and health are open
 
-    // Apply auth middleware to all /api/* routes EXCEPT login and health
+    // Apply auth middleware to all /api/* routes EXCEPT login, health, and admin
     app.use('/api', (req, res, next) => {
-      // Skip auth for login, health, and root
+      // Skip auth for login, health, app-config, and admin routes
+      // (admin routes are called by the admin backend which has its own auth)
       const openPaths = ['/users/login', '/health', '/app-config'];
       if (openPaths.some(p => req.path === p)) return next();
+      if (req.path.startsWith('/admin')) return next();
       return authenticateUser(req, res, next);
     });
 
@@ -345,8 +347,15 @@ AppDataSource.initialize()
         });
         const saved = await messageRepo.save(message);
         
+        // Enrich with sender's phone for WebSocket receivers
+        let enrichedMessage: any = { ...saved };
+        if (saved.fromId) {
+          const fromUser = await userRepo.findOne({ where: { id: saved.fromId } });
+          if (fromUser) enrichedMessage.fromPhone = fromUser.phone;
+        }
+        
         // Push message to recipient via WebSocket
-        emitMessageToRecipient(saved);
+        emitMessageToRecipient(enrichedMessage);
         
         res.status(201).json(saved);
       } catch (error) {

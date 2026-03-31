@@ -270,6 +270,7 @@ class ChatService extends ChangeNotifier {
     if (type == 'new_message' && data != null) {
       // Incoming message from another user
       final fromId = data['fromId'] ?? data['from'] ?? '';
+      final fromPhone = (data['fromPhone'] ?? '') as String;
       final message = Message(
         id: data['id'] ?? '',
         from: fromId,
@@ -280,8 +281,30 @@ class ChatService extends ChangeNotifier {
                   ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
       );
 
-      // Add to the conversation with the sender
-      final contactId = message.from;
+      // Find the matching contact to use the same conversation key as ChatPage
+      // ChatPage uses contact.phone as _contactId, so we must store under the
+      // sender's phone number (not their UUID) for messages to appear.
+      String contactId = fromId; // fallback to UUID
+      if (fromPhone.isNotEmpty) {
+        // Try to find a local contact whose phone matches the sender
+        Contact? matchingContact;
+        for (final c in _contacts) {
+          if (c.phone == fromPhone) {
+            matchingContact = c;
+            break;
+          }
+          // Also try last-10-digit matching for country code differences
+          final cDigits = c.phone.replaceAll(RegExp(r'[^\d]'), '');
+          final fpDigits = fromPhone.replaceAll(RegExp(r'[^\d]'), '');
+          if (cDigits.length >= 10 && fpDigits.length >= 10 &&
+              cDigits.substring(cDigits.length - 10) == fpDigits.substring(fpDigits.length - 10)) {
+            matchingContact = c;
+            break;
+          }
+        }
+        contactId = matchingContact?.phone ?? fromPhone;
+      }
+
       if (!_messages.containsKey(contactId)) {
         _messages[contactId] = [];
       }
@@ -289,6 +312,7 @@ class ChatService extends ChangeNotifier {
       if (!_messages[contactId]!.any((m) => m.id == message.id)) {
         _messages[contactId]!.add(message);
         debugPrint('[WS] Received message from $contactId: ${message.text}');
+        _saveMessages(); // Persist to disk
         notifyListeners();
       }
     } else if (type == 'message_delivered' || type == 'message_read') {
@@ -726,12 +750,12 @@ class ChatService extends ChangeNotifier {
     await prefs.remove(_privateSessionKey);
   }
 
-  /// Called by lifecycle watcher — clear ALL messages for maximum privacy
+  /// Called by lifecycle watcher — only purge private messages, keep regular ones
   void handleAppLifecycle(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      clearAllMessages(reason: 'app_inactive');
+      purgePrivateMessages();
     }
   }
 
