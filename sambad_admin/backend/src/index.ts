@@ -10,8 +10,8 @@ import { AdminLog } from './models/admin_log';
 import { Setting } from './models/setting';
 import { seedDefaultAdmin } from './seed';
 
-// Production backend URL
-const USER_BACKEND = 'https://web.uponlytech.com/sambad-backend/api';
+// Internal backend URL (same server, no nginx proxy needed)
+const USER_BACKEND = process.env.USER_BACKEND_URL || 'http://localhost:4000/api';
 
 const app = express();
 app.use(cors());
@@ -238,12 +238,12 @@ app.delete('/admin-users/:id',
 
 app.get('/analytics', authMiddleware, async (req, res) => {
   try {
-    const [usersRes, messagesRes] = await Promise.all([
-      axios.get(`${USER_BACKEND}/users`),
-      axios.get(`${USER_BACKEND}/messages`),
+    const [usersRes, analyticsRes] = await Promise.all([
+      axios.get(`${USER_BACKEND}/admin/users`),
+      axios.get(`${USER_BACKEND}/admin/analytics`),
     ]);
     const users = usersRes.data as any[];
-    const messages = messagesRes.data as any[];
+    const analytics = analyticsRes.data as any;
 
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
@@ -261,9 +261,10 @@ app.get('/analytics', authMiddleware, async (req, res) => {
     const growth = totalUsers > 0
       ? parseFloat(((newUsers / totalUsers) * 100).toFixed(2))
       : 0;
-    const totalMessages = messages.length;
+    const totalMessages = analytics.totalMessages || 0;
+    const totalContacts = analytics.totalContacts || 0;
 
-    res.json({ totalUsers, newUsers, activeUsers, inactiveUsers, growth, totalMessages });
+    res.json({ totalUsers, newUsers, activeUsers, inactiveUsers, growth, totalMessages, totalContacts });
   } catch (e) {
     const err = e as Error;
     res.status(500).json({ error: 'Failed to fetch analytics', details: err.message });
@@ -272,22 +273,8 @@ app.get('/analytics', authMiddleware, async (req, res) => {
 
 app.get('/activity', authMiddleware, async (req, res) => {
   try {
-    const [messagesRes, contactsRes] = await Promise.all([
-      axios.get(`${USER_BACKEND}/messages`),
-      axios.get(`${USER_BACKEND}/contacts`),
-    ]);
-    const messages = (messagesRes.data as any[]).slice(0, 10).map((m: any) => ({
-      description: `Message from ${m.from_user?.phone || m.from_user_id} to ${m.to_user?.phone || m.to_user_id}`,
-      time: m.created_at,
-    }));
-    const contacts = (contactsRes.data as any[]).slice(0, 5).map((c: any) => ({
-      description: `Contact added: ${c.name} (${c.phone})`,
-      time: c.created_at || new Date().toISOString(),
-    }));
-    const activity = [...messages, ...contacts].sort((a, b) =>
-      new Date(b.time).getTime() - new Date(a.time).getTime()
-    );
-    res.json(activity.slice(0, 10));
+    const activityRes = await axios.get(`${USER_BACKEND}/admin/activity`);
+    res.json(activityRes.data);
   } catch (e) {
     const err = e as Error;
     res.status(500).json({ error: 'Failed to fetch activity', details: err.message });
@@ -300,7 +287,7 @@ app.get('/activity', authMiddleware, async (req, res) => {
 
 app.get('/users', authMiddleware, async (req, res) => {
   try {
-    const usersRes = await axios.get(`${USER_BACKEND}/users`);
+    const usersRes = await axios.get(`${USER_BACKEND}/admin/users`);
     const rawUsers = usersRes.data as any[];
     const transformedUsers = rawUsers.map((user: any) => ({
       id: user.id,
@@ -325,7 +312,7 @@ app.get('/users', authMiddleware, async (req, res) => {
 
 app.get('/messages', authMiddleware, async (req, res) => {
   try {
-    const messagesRes = await axios.get(`${USER_BACKEND}/messages`);
+    const messagesRes = await axios.get(`${USER_BACKEND}/admin/analytics`);
     res.json(messagesRes.data);
   } catch (e) {
     const err = e as Error;
@@ -335,7 +322,7 @@ app.get('/messages', authMiddleware, async (req, res) => {
 
 app.get('/contacts', authMiddleware, async (req, res) => {
   try {
-    const contactsRes = await axios.get(`${USER_BACKEND}/contacts`);
+    const contactsRes = await axios.get(`${USER_BACKEND}/admin/activity`);
     res.json(contactsRes.data);
   } catch (e) {
     const err = e as Error;
