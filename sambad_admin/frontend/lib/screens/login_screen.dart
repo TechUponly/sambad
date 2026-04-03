@@ -1,87 +1,78 @@
 import 'package:flutter/material.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'dashboard_screen.dart';
-
+import '../services/api_service.dart';
 
 class AdminLoginPage extends StatefulWidget {
-  final VoidCallback? onThemeToggle;
-  final bool? isDark;
-  const AdminLoginPage({Key? key, this.onThemeToggle, this.isDark}) : super(key: key);
+  const AdminLoginPage({Key? key}) : super(key: key);
   @override
-  _AdminLoginPageState createState() => _AdminLoginPageState();
+  State<AdminLoginPage> createState() => _AdminLoginPageState();
 }
 
 class _AdminLoginPageState extends State<AdminLoginPage> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _error;
   bool _obscurePassword = true;
 
-  // Real SHA-256 hashes for '7718811069' and 'Taksh@060921'
-  static const String _userHash = 'f89c3fd145fddc2ea99723b9fc72866dffde05cd4a2fda7a855dc3f5f38d4c15';
-  static const String _passHash = 'fd661efb2da05d9b281038591a1a4c8292663fdcfe7eeeb85e5b66eec4b83958';
-
-  String _sha256(String input) {
-    return sha256.convert(utf8.encode(input)).toString();
-  }
-
   void _login() async {
-    setState(() { _isLoading = true; _error = null; });
-    await Future.delayed(const Duration(milliseconds: 500));
-    final userInput = _usernameController.text.trim();
-    final passInput = _passwordController.text;
-    final userHash = _sha256(userInput);
-    final passHash = _sha256(passInput);
-    print('Entered username: ' + userInput);
-    print('Entered password: ' + passInput);
-    print('Username hash: ' + userHash);
-    print('Password hash: ' + passHash);
-    print('Expected username hash: ' + _userHash);
-    print('Expected password hash: ' + _passHash);
-    if (userHash == _userHash && passHash == _passHash) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const AdminDashboardPage(),
-        ),
-      );
-    } else {
-      setState(() { _error = 'Invalid credentials'; });
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+    
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _error = 'Please enter username and password');
+      return;
     }
-    setState(() { _isLoading = false; });
+
+    setState(() { _isLoading = true; _error = null; });
+
+    try {
+      await ApiService().login(username, password);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
+      );
+    } catch (e) {
+      String message = 'Login failed';
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map && data['message'] != null) {
+          message = data['message'];
+        } else if (e.response?.statusCode == 401) {
+          message = 'Invalid username or password';
+        } else if (e.response?.statusCode == 403) {
+          message = 'Account is disabled';
+        } else if (e.type == DioExceptionType.connectionTimeout || 
+                   e.type == DioExceptionType.connectionError) {
+          message = 'Cannot reach server';
+        }
+      }
+      setState(() => _error = message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(widget.isDark == true ? Icons.light_mode : Icons.dark_mode),
-            tooltip: 'Toggle Theme',
-            onPressed: widget.onThemeToggle,
-          ),
-        ],
-      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              padding: const EdgeInsets.all(32),
+              constraints: const BoxConstraints(maxWidth: 420),
+              padding: const EdgeInsets.all(36),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.deepPurple.withOpacity(0.2),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFF0288D1).withOpacity(0.15),
+                    blurRadius: 32,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
@@ -89,26 +80,55 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Welcome Admin v3', style: TextStyle(color: Colors.deepPurpleAccent, fontSize: 28, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                  const SizedBox(height: 24),
+                  // Logo area
+                  Container(
+                    width: 72, height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0288D1), Color(0xFF4FC3F7)],
+                      ),
+                    ),
+                    child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 40),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Sambad Admin', 
+                    style: TextStyle(
+                      color: const Color(0xFF0288D1), 
+                      fontSize: 28, 
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ), 
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Sign in to continue', 
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
                   TextField(
                     controller: _usernameController,
                     decoration: InputDecoration(
                       labelText: 'Username',
-                      prefixIcon: const Icon(Icons.person),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
                     ),
                     textInputAction: TextInputAction.next,
                     onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      filled: true,
+                      fillColor: Colors.grey[50],
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -118,25 +138,37 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                   ),
                   const SizedBox(height: 24),
                   if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(_error!, style: TextStyle(color: Colors.redAccent.withOpacity(0.7))),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red[700], size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_error!, style: TextStyle(color: Colors.red[700], fontSize: 13))),
+                        ],
+                      ),
                     ),
                   SizedBox(
                     width: double.infinity,
+                    height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        backgroundColor: Colors.deepPurpleAccent,
-                        elevation: 4,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        backgroundColor: const Color(0xFF0288D1),
+                        elevation: 2,
                         foregroundColor: Colors.white,
-                        textStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       onPressed: _isLoading ? null : _login,
                       child: _isLoading
                           ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Login'),
+                          : const Text('Sign In'),
                     ),
                   ),
                 ],

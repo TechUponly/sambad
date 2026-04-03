@@ -41,6 +41,10 @@ export async function loginHandler(req: Request, res: Response) {
       return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid username or password.' });
     }
 
+    if (!admin.is_active) {
+      return res.status(403).json({ error: 'ACCOUNT_DISABLED', message: 'Account is disabled.' });
+    }
+
     const ok = await bcrypt.compare(password, admin.password_hash);
     if (!ok) {
       return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid username or password.' });
@@ -56,11 +60,15 @@ export async function loginHandler(req: Request, res: Response) {
       { expiresIn: '8h' }
     );
 
-    // Basic audit log for login
+    // Update last_login_at
+    admin.last_login_at = new Date();
+    await repo.save(admin);
+
+    // Audit log
     try {
       const logRepo = ds.getRepository(AdminLog);
       const log = logRepo.create({
-        admin_user_id: admin.id,
+        admin_id: admin.id,
         action: 'LOGIN',
         target_type: 'admin_user',
         target_id: admin.id,
@@ -68,7 +76,6 @@ export async function loginHandler(req: Request, res: Response) {
       });
       await logRepo.save(log);
     } catch (logError: any) {
-      // Log error but don't fail login
       console.error('Failed to create audit log:', logError.message);
     }
 
@@ -81,8 +88,8 @@ export async function loginHandler(req: Request, res: Response) {
         role: admin.role,
       },
     });
-  } catch (err) {
-    // Avoid leaking internals
+  } catch (err: any) {
+    console.error('Login error:', err.message);
     return res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to login admin.' });
   }
 }
@@ -101,8 +108,8 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     const repo = ds.getRepository(AdminUser);
     const admin = await repo.findOne({ where: { id: payload.sub } });
 
-    if (!admin) {
-      return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Admin not found.' });
+    if (!admin || !admin.is_active) {
+      return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Admin not found or disabled.' });
     }
 
     req.admin = admin;
@@ -123,4 +130,3 @@ export function requireRole(allowedRoles: string[]) {
     return next();
   };
 }
-

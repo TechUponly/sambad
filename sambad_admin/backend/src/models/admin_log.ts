@@ -1,30 +1,30 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { AdminUser } from './admin_user';
 
-@Entity('admin_logs')
+@Entity('admin_audit_logs')
 export class AdminLog {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn('increment')
+  id: number;
 
-  @Column({ nullable: true })
-  admin_user_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  admin_id: string | null;
 
   @ManyToOne(() => AdminUser, { nullable: true })
-  @JoinColumn({ name: 'admin_user_id' })
+  @JoinColumn({ name: 'admin_id' })
   admin_user: AdminUser;
 
-  @Column()
+  @Column({ type: 'varchar' })
   action: string;
 
-  @Column()
-  target_type: string;
+  @Column({ type: 'varchar', nullable: true })
+  target_type: string | null;
 
-  @Column()
-  target_id: string;
+  @Column({ type: 'varchar', nullable: true })
+  target_id: string | null;
 
   @CreateDateColumn()
   timestamp: Date;
 
-  @Column('jsonb', { nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   details: any;
 }

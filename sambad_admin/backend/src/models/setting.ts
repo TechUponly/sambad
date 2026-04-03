@@ -8,8 +8,8 @@ export class Setting {
   @Column({ unique: true })
   key: string;
 
-  @Column('jsonb')
-  value: any;
+  @Column('text')
+  value: string;
 
   @UpdateDateColumn()
   updated_at: Date;

@@ -9,7 +9,7 @@ import 'rights_screen.dart';
 import 'audit_screen.dart';
 import 'analytics_screen.dart';
 import 'notifications_screen.dart';
-import 'logout_screen.dart';
+import 'admin_users_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
@@ -40,50 +40,60 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _selectedIndex = 0;
 
-  final List<_SidebarItem> _sidebarItems = [
-    _SidebarItem('Dashboard', Icons.dashboard),
-    _SidebarItem('Users', Icons.people),
-    _SidebarItem('Notifications', Icons.notifications_active),
-    _SidebarItem('Analytics', Icons.analytics),
-    _SidebarItem('Profile', Icons.person),
-    _SidebarItem('Settings', Icons.settings),
-    _SidebarItem('Config', Icons.tune),
-    _SidebarItem('Rights', Icons.admin_panel_settings),
-    _SidebarItem('Audit', Icons.history),
-    _SidebarItem('Logout', Icons.logout),
+  // All sidebar items with required roles for visibility
+  static const _allItems = [
+    _SidebarItem('Dashboard', Icons.dashboard, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('App Users', Icons.people, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('Notifications', Icons.notifications_active, ['super_admin', 'admin']),
+    _SidebarItem('Analytics', Icons.analytics, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('Admin Users', Icons.manage_accounts, ['super_admin']),
+    _SidebarItem('Profile', Icons.person, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('Config', Icons.tune, ['super_admin']),
+    _SidebarItem('Rights', Icons.admin_panel_settings, ['super_admin', 'admin']),
+    _SidebarItem('Audit', Icons.history, ['super_admin', 'admin']),
+    _SidebarItem('Logout', Icons.logout, ['super_admin', 'admin', 'moderator', 'viewer']),
   ];
 
-  Widget _getSectionWidget(int index) {
-    switch (index) {
-      case 0:
-        return _DashboardContent();
-      case 1:
-        return _UsersContent();
-      case 2:
-        return const NotificationsScreen();
-      case 3:
-        return AnalyticsScreen();
-      case 4:
-        return ProfileScreen();
-      case 5:
-        return SettingsScreen();
-      case 6:
-        return ConfigScreen();
-      case 7:
-        return RightsScreen();
-      case 8:
-        return AuditScreen();
-      default:
-        return Center(child: Text('Unknown Section'));
+  List<_SidebarItem> get _visibleItems {
+    final role = AdminAuthState.role;
+    return _allItems.where((item) => item.allowedRoles.contains(role)).toList();
+  }
+
+  Widget _getSectionWidget(String label) {
+    switch (label) {
+      case 'Dashboard': return _DashboardContent();
+      case 'App Users': return _UsersContent();
+      case 'Notifications': return const NotificationsScreen();
+      case 'Analytics': return AnalyticsScreen();
+      case 'Admin Users': return const AdminUsersScreen();
+      case 'Profile': return const ProfileScreen();
+      case 'Config': return const ConfigScreen();
+      case 'Rights': return const RightsScreen();
+      case 'Audit': return const AuditScreen();
+      default: return Center(child: Text('Unknown: $label'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final items = _visibleItems;
+    final safeIndex = _selectedIndex < items.length ? _selectedIndex : 0;
+    final currentItem = items[safeIndex];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sambad Admin Dashboard'),
+        title: const Text('Sambad Admin'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(children: [
+              Icon(Icons.person, size: 18, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text(AdminAuthState.username, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+            ]),
+          ),
+        ],
       ),
       body: Row(
         children: [
@@ -97,22 +107,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 Expanded(
                   child: ListView(
                     children: [
-                      for (int i = 0; i < _sidebarItems.length; i++)
+                      for (int i = 0; i < items.length; i++)
                         SidebarButton(
-                          icon: _sidebarItems[i].icon,
-                          label: _sidebarItems[i].label,
-                          color: i == _selectedIndex ? theme.colorScheme.primary : theme.colorScheme.secondary.withOpacity(0.2),
-                          textColor: i == _selectedIndex ? Colors.white : null,
+                          icon: items[i].icon,
+                          label: items[i].label,
+                          color: i == safeIndex ? theme.colorScheme.primary : theme.colorScheme.secondary.withOpacity(0.2),
+                          textColor: i == safeIndex ? Colors.white : null,
                           onTap: () {
-                            if (_sidebarItems[i].label == 'Logout') {
+                            if (items[i].label == 'Logout') {
+                              AdminAuthState.clear();
                               Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (context) => AdminLoginPage()),
+                                MaterialPageRoute(builder: (context) => const AdminLoginPage()),
                                 (route) => false,
                               );
                             } else {
-                              setState(() {
-                                _selectedIndex = i;
-                              });
+                              setState(() => _selectedIndex = i);
                             }
                           },
                         ),
@@ -126,7 +135,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: _getSectionWidget(_selectedIndex),
+              child: _getSectionWidget(currentItem.label),
             ),
           ),
         ],
@@ -138,7 +147,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 class _SidebarItem {
   final String label;
   final IconData icon;
-  const _SidebarItem(this.label, this.icon);
+  final List<String> allowedRoles;
+  const _SidebarItem(this.label, this.icon, this.allowedRoles);
 }
 
 // Dashboard content widget
@@ -164,7 +174,7 @@ class _DashboardContentState extends State<_DashboardContent> {
     _activityFuture = ApiService().fetchRecentActivity();
     // Connect to WebSocket for real-time updates
     AdminWebSocket().connect(
-      url: 'ws://localhost:4000',
+      url: 'wss://web.uponlytech.com/sambad-backend',
       onEvent: (event) {
         if (event['type'] == 'contact_added') {
           setState(() {
