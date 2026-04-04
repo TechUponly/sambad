@@ -66,7 +66,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
             ),
             SizedBox(width: 12),
             Text(
-              'Coming Soon',
+              'Sambad AI',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -176,7 +176,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
                       controller: _controller,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Coming soon',
+                        hintText: 'Type a message...',
                         hintStyle: const TextStyle(color: Colors.white54),
                         filled: true,
                         fillColor: Colors.white10,
