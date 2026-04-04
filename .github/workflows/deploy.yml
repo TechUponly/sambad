@@ -1,7 +1,7 @@
 name: Deploy Sambad Backend
 on:
   push:
-    branches: [shambad1]
+    branches: [samvad]
   workflow_dispatch:
 jobs:
   deploy-backend:
@@ -18,7 +18,7 @@ jobs:
           port: 22
           script: |
             cd /var/www/html/public_html/sambad
-            git pull origin shambad1
+            git pull origin samvad
             echo "🚀 Deploying user backend..."
             cd /var/www/html/public_html/sambad/app_user/backend
             npm install

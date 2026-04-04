@@ -1,9 +1,9 @@
 name: Build Flutter AAB & APK
 on:
   push:
-    branches: [ shambad1 ]
+    branches: [ samvad ]
   pull_request:
-    branches: [ shambad1 ]
+    branches: [ samvad ]
   workflow_dispatch:
 jobs:
   build:
