@@ -300,7 +300,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Icon(Icons.chat_bubble, color: Colors.white, size: Responsive.size(context, 40)),
               ),
               SizedBox(height: Responsive.vertical(context, 24)),
-              Text('Welcome to Sambad', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 28), fontWeight: FontWeight.bold)),
+              Text('Welcome to Samvad', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 28), fontWeight: FontWeight.bold)),
               SizedBox(height: Responsive.vertical(context, 8)),
               Text('Private & secure messaging', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 16))),
               SizedBox(height: Responsive.vertical(context, 48)),

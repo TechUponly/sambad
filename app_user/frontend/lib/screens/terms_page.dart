@@ -23,7 +23,7 @@ class TermsPage extends StatelessWidget {
           children: [
             Text('Terms of Service', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
             SizedBox(height: 24),
-            Text('By using Sambad, you agree not to use the app for illegal activities. We may suspend accounts that violate terms.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
+            Text('By using Samvad, you agree not to use the app for illegal activities. We may suspend accounts that violate terms.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
           ],
         ),
       ),

@@ -83,7 +83,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sambad Admin'),
+        title: const Text('Samvad Admin'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),

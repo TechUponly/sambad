@@ -137,7 +137,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
               child: Row(
                 children: [
-                  Expanded(child: Text('Private Sambad welcomes you!', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Expanded(child: Text('Private Samvad welcomes you!', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 ],
               ),
             ),
@@ -380,12 +380,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _settingsHeader('About'),
         _settingsTile(
           icon: Icons.info_outline,
-          title: 'About Private Sambad',
+          title: 'About Private Samvad',
           subtitle: 'Version 1.0.0',
           onTap: () {
             showAboutDialog(
               context: context,
-              applicationName: 'Private Sambad',
+              applicationName: 'Private Samvad',
               applicationVersion: '1.0.0',
               applicationIcon: Container(
                 padding: const EdgeInsets.all(8),
@@ -417,7 +417,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 body: const SingleChildScrollView(
                   padding: EdgeInsets.all(20),
                   child: Text(
-                    'Private Sambad respects your privacy.\n\n'
+                    'Private Samvad respects your privacy.\n\n'
                     '• Messages are end-to-end encrypted\n'
                     '• We do not read or store your messages\n'
                     '• Private conversations auto-delete\n'

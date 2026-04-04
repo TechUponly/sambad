@@ -92,7 +92,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                     child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 40),
                   ),
                   const SizedBox(height: 20),
-                  Text('Sambad Admin', 
+                  Text('Samvad Admin', 
                     style: TextStyle(
                       color: const Color(0xFF0288D1), 
                       fontSize: 28, 

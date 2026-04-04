@@ -66,7 +66,7 @@ class _AIBotChatPageState extends State<AIBotChatPage> {
             ),
             SizedBox(width: 12),
             Text(
-              'Sambad AI',
+              'Samvad AI',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,

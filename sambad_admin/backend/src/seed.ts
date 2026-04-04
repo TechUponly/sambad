@@ -15,7 +15,7 @@ export async function seedDefaultAdmin() {
       const passwordHash = await bcrypt.hash('Taksh@060921', 12);
       const admin = repo.create({
         username: '7718811069',
-        email: 'admin@sambad.app',
+        email: 'admin@samvad.app',
         password_hash: passwordHash,
         role: 'super_admin',
         is_active: true,

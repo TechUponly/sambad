@@ -107,7 +107,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Private Sambad',
+      title: 'Private Samvad',
       theme: AppTheme.intuitiveTheme,
       home: isLoggedIn ? const HomePage() : const LoginScreen(),
       debugShowCheckedModeBanner: false,

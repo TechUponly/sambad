@@ -14,7 +14,7 @@ app.use(express.json());
 app.use('/test-dashboard', express.static('public'));
 
 app.get('/', (_req, res) => {
-  res.send('Sambad Admin Backend is running!');
+  res.send('Samvad Admin Backend is running!');
 });
 
 app.post('/login', loginHandler);

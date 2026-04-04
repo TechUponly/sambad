@@ -23,7 +23,7 @@ const PORT = 5050;
 // HEALTH CHECK (public)
 // ============================================
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'Sambad Admin Backend', version: '2.0.0' });
+  res.json({ status: 'ok', service: 'Samvad Admin Backend', version: '2.0.0' });
 });
 
 // ============================================

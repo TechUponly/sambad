@@ -21,3 +21,8 @@ _ARCHIVE_sambad_legacy/
 **/incremental/
 **/merged_native_libs/
 dist/
+
+# Build output
+build_out/
+*.log
+flutter_*.log

@@ -23,7 +23,7 @@ class PrivacyPolicyPage extends StatelessWidget {
           children: const [
             Text('Privacy Policy', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
             SizedBox(height: 24),
-            Text('We collect your phone number for authentication and contacts (with your permission) to help you connect with friends on Sambad.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
+            Text('We collect your phone number for authentication and contacts (with your permission) to help you connect with friends on Samvad.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
             SizedBox(height: 16),
             Text('Your messages are end-to-end encrypted. We never sell or share your personal data with third parties.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
             SizedBox(height: 16),

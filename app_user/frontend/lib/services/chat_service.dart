@@ -44,10 +44,10 @@ class ChatService extends ChangeNotifier {
 
   /// The invite text to share — from backend or hardcoded fallback
   String get inviteText => _appConfig['invite_text'] as String? ??
-      '🔒 Join me on Private Sambad — the secure messaging app!\n\n'
+      '🔒 Join me on Private Samvad — the secure messaging app!\n\n'
       '📱 Download now:\n'
       '▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n'
-      '🍎 iOS: https://apps.apple.com/app/private-sambad/id6744640580';
+      '🍎 iOS: https://apps.apple.com/app/private-samvad/id6744640580';
 
   /// Get auth headers for all HTTP calls
   Future<Map<String, String>> _authHeaders() async {

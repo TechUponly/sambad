@@ -20,7 +20,7 @@ AppDataSource.initialize()
     app.use(express.json());
 
     app.get('/', (req, res) => {
-      res.send('<h1>Sambad Unified Backend</h1><p>Database: PostgreSQL</p>');
+      res.send('<h1>Samvad Unified Backend</h1><p>Database: PostgreSQL</p>');
     });
 
     // Public endpoints (no auth required)
@@ -375,7 +375,7 @@ AppDataSource.initialize()
         const userRepo = AppDataSource.getRepository('User');
         const contactRepo = AppDataSource.getRepository('Contact');
         
-        // Find which contacts are registered Sambad users
+        // Find which contacts are registered Samvad users
         const phones = contacts.map(c => c.phone).filter(p => p);
         
         if (phones.length === 0) {
@@ -420,7 +420,7 @@ AppDataSource.initialize()
 
         // Defaults (used when keys are missing from DB)
         const defaults: Record<string, string> = {
-          invite_text: '🔒 Join me on Private Sambad — the secure messaging app!\n\n📱 Download now:\n▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n🍎 iOS: https://apps.apple.com/app/private-sambad/id6744640580',
+          invite_text: '🔒 Join me on Private Samvad — the secure messaging app!\n\n📱 Download now:\n▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n🍎 iOS: https://apps.apple.com/app/private-samvad/id6744640580',
         };
 
         res.json({ ...defaults, ...config });
