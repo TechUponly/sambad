@@ -82,6 +82,11 @@ class ApiService {
     return response.data;
   }
 
+  Future<Map<String, dynamic>> updateUserStatus(String userId, String status) async {
+    final response = await _dio.put('$baseUrl/users/$userId/status', data: {'status': status});
+    return response.data;
+  }
+
   // ── Admin Users (RBAC management) ──
   Future<List<dynamic>> fetchAdminUsers() async {
     final response = await _dio.get('$baseUrl/admin-users');

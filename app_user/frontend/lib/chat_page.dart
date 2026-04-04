@@ -136,35 +136,61 @@ class _ChatPageState extends State<ChatPage> {
         elevation: 0,
         title: Row(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF5B7FFF), Color(0xFF4A6FE8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+            Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF5B7FFF), Color(0xFF4A6FE8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const CircleAvatar(
-                backgroundColor: Colors.transparent,
-                child: Icon(Icons.person, color: Colors.black87),
-              ),
+                  child: const CircleAvatar(
+                    backgroundColor: Colors.transparent,
+                    child: Icon(Icons.person, color: Colors.black87),
+                  ),
+                ),
+                // Online indicator dot
+                if (widget.contact != null && context.watch<ChatService>().isOnline(widget.contact!.id))
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
-            Text(
-              widget.name,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: Responsive.fontSize(context, 20),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.name,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: Responsive.fontSize(context, 20),
+                  ),
+                ),
+                if (widget.contact != null && context.watch<ChatService>().isTyping(widget.contact!.id))
+                  const Text('typing...', style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontStyle: FontStyle.italic)),
+              ],
             ),
             if (widget.isPrivate && widget.onCall != null) ...[
               const SizedBox(width: 16),
@@ -283,6 +309,16 @@ class _ChatPageState extends State<ChatPage> {
                                   ),
                                 ),
                                 onSubmitted: (_) => _send(),
+                                onChanged: (text) {
+                                  if (widget.contact != null) {
+                                    final svc = context.read<ChatService>();
+                                    if (text.isNotEmpty) {
+                                      svc.sendTypingIndicator(widget.contact!.id);
+                                    } else {
+                                      svc.sendStopTypingIndicator(widget.contact!.id);
+                                    }
+                                  }
+                                },
                               ),
                             ),
                           ),

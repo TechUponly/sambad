@@ -318,6 +318,34 @@ class ChatService extends ChangeNotifier {
     } else if (type == 'message_delivered' || type == 'message_read') {
       debugPrint('[WS] $type: ${data?['messageId']}');
       notifyListeners();
+    } else if (type == 'user_online' && data != null) {
+      final uid = data['userId'] as String? ?? '';
+      if (uid.isNotEmpty) {
+        _onlineUsers.add(uid);
+        notifyListeners();
+      }
+    } else if (type == 'user_offline' && data != null) {
+      final uid = data['userId'] as String? ?? '';
+      _onlineUsers.remove(uid);
+      notifyListeners();
+    } else if (type == 'typing' && data != null) {
+      final from = data['from'] as String? ?? '';
+      if (from.isNotEmpty) {
+        _typingUsers.add(from);
+        _typingTimers[from]?.cancel();
+        _typingTimers[from] = Timer(const Duration(seconds: 3), () {
+          _typingUsers.remove(from);
+          _typingTimers.remove(from);
+          notifyListeners();
+        });
+        notifyListeners();
+      }
+    } else if (type == 'stop_typing' && data != null) {
+      final from = data['from'] as String? ?? '';
+      _typingUsers.remove(from);
+      _typingTimers[from]?.cancel();
+      _typingTimers.remove(from);
+      notifyListeners();
     }
   }
 
@@ -325,6 +353,20 @@ class ChatService extends ChangeNotifier {
     _wsReconnectTimer?.cancel();
     _ws?.close();
     _ws = null;
+  }
+
+  /// Send typing indicator to a specific user
+  void sendTypingIndicator(String recipientId) {
+    if (_ws != null) {
+      _ws!.add(jsonEncode({'type': 'typing', 'to': recipientId}));
+    }
+  }
+
+  /// Send stop typing indicator
+  void sendStopTypingIndicator(String recipientId) {
+    if (_ws != null) {
+      _ws!.add(jsonEncode({'type': 'stop_typing', 'to': recipientId}));
+    }
   }
 
   final int _privateTtlMs = 30 * 60 * 1000; // 30 minutes
@@ -338,6 +380,15 @@ class ChatService extends ChangeNotifier {
   List<String> _groups = [];
   Map<String, List<String>> _groupMembers = {};
   List<String> _blockedGroups = [];
+
+  // Online & Typing indicators
+  final Set<String> _onlineUsers = {};
+  final Map<String, Timer> _typingTimers = {};
+  final Set<String> _typingUsers = {};
+
+  Set<String> get onlineUsers => _onlineUsers;
+  bool isOnline(String userId) => _onlineUsers.contains(userId);
+  bool isTyping(String userId) => _typingUsers.contains(userId);
   int? _lastPrivateActivity; // millisSinceEpoch of last private chat activity
   // Removed old encrypter fields
   Timer? _cleanupTimer;

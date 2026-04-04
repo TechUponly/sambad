@@ -14,18 +14,37 @@ class ContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final svc = Provider.of<ChatService>(context, listen: false);
+    final svc = Provider.of<ChatService>(context);
     final isBlocked = svc.blockedContacts.contains(contact.id);
+    final isOnline = svc.isOnline(contact.id);
     return ListTile(
       onTap: onTap,
       contentPadding: Responsive.paddingSymmetric(context, v: 6, h: 8),
-      leading: CircleAvatar(
-        radius: Responsive.size(context, 26),
-        backgroundColor: AppColors.avatarColor(contact.name),
-        child: Text(
-          contact.name.isNotEmpty ? contact.name.substring(0, 1).toUpperCase() : '?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 16)),
-        ),
+      leading: Stack(
+        children: [
+          CircleAvatar(
+            radius: Responsive.size(context, 26),
+            backgroundColor: AppColors.avatarColor(contact.name),
+            child: Text(
+              contact.name.isNotEmpty ? contact.name.substring(0, 1).toUpperCase() : '?',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 16)),
+            ),
+          ),
+          if (isOnline)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF23272F), width: 2),
+                ),
+              ),
+            ),
+        ],
       ),
       title: Text(contact.name, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
       subtitle: Text(contact.phone, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),

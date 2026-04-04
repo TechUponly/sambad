@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import { AppDataSource } from './db';
 import admin from './firebase-init';
+import { getOnlineUserIds } from './websocket';
 
 const router = Router();
+
+// Get online user IDs
+router.get('/online', (req, res) => {
+  res.json({ onlineUserIds: getOnlineUserIds() });
+});
 
 // Get analytics
 router.get('/analytics', async (req, res) => {
@@ -167,6 +173,27 @@ router.get('/notifications', async (req, res) => {
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Update user status (ban/deactivate/activate)
+router.put('/users/:id/status', async (req, res) => {
+  try {
+    const userRepo = AppDataSource.getRepository('User');
+    const { status } = req.body;
+    if (!['active', 'banned', 'deactivated'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be: active, banned, or deactivated' });
+    }
+    const user = await userRepo.findOne({ where: { id: req.params.id } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    (user as any).status = status;
+    await userRepo.save(user);
+    res.json({ success: true, userId: req.params.id, status });
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({ error: 'Failed to update user status' });
   }
 });
 

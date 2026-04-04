@@ -52,6 +52,14 @@ export function initWebSocketServer(server: Server) {
           console.log(`✅ WebSocket registered: userId=${userId}`);
           ws.send(JSON.stringify({ type: 'registered', userId }));
         }
+        // Typing indicator: { type: 'typing', to: 'recipientId' }
+        if (msg.type === 'typing' && msg.to && userId) {
+          sendToUser(msg.to, 'typing', { from: userId, timestamp: new Date().toISOString() });
+        }
+        // Stop typing: { type: 'stop_typing', to: 'recipientId' }
+        if (msg.type === 'stop_typing' && msg.to && userId) {
+          sendToUser(msg.to, 'stop_typing', { from: userId });
+        }
       } catch (e) {
         // ignore non-JSON messages
       }

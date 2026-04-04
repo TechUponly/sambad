@@ -561,6 +561,20 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 14),
+                              // User Management Actions
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (user['active'] == true) ...[
+                                    _actionButton(context, 'Deactivate', Icons.pause_circle_outline, Colors.orange, () => _updateStatus(context, user['id'], 'deactivated')),
+                                    const SizedBox(width: 8),
+                                    _actionButton(context, 'Ban', Icons.block, Colors.red, () => _updateStatus(context, user['id'], 'banned')),
+                                  ] else ...[
+                                    _actionButton(context, 'Activate', Icons.check_circle_outline, Colors.green, () => _updateStatus(context, user['id'], 'active')),
+                                  ],
+                                ],
+                              ),
                             ],
                           ],
                         ),
@@ -574,6 +588,60 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
         ],
       ),
     );
+  }
+  Widget _actionButton(BuildContext context, String label, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _updateStatus(BuildContext context, String userId, String status) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${status == 'banned' ? 'Ban' : status == 'deactivated' ? 'Deactivate' : 'Activate'} User?'),
+        content: Text('Are you sure you want to set this user\'s status to "$status"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: status == 'active' ? Colors.green : Colors.red),
+            child: Text(status == 'active' ? 'Activate' : status == 'banned' ? 'Ban' : 'Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService().updateUserStatus(userId, status);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ User $status successfully'), backgroundColor: Colors.green),
+        );
+      }
+      // Refresh user list
+      setState(() {
+        final user = widget.users.firstWhere((u) => u['id'] == userId, orElse: () => null);
+        if (user != null) {
+          user['active'] = status == 'active';
+          user['status'] = status;
+        }
+      });
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 

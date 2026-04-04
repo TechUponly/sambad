@@ -310,6 +310,23 @@ app.get('/users', authMiddleware, async (req, res) => {
   }
 });
 
+app.put('/users/:id/status',
+  authMiddleware,
+  requireRole(['super_admin', 'admin']),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { status } = req.body;
+      const userId = req.params.id as string;
+      const result = await axios.put(`${USER_BACKEND}/admin/users/${userId}/status`, { status });
+      await logAction(await initAdminDataSource(), req.admin!.id, 'UPDATE_USER_STATUS', 'user', userId, { status });
+      res.json(result.data);
+    } catch (e) {
+      const err = e as Error;
+      res.status(500).json({ error: 'Failed to update user status', details: err.message });
+    }
+  }
+);
+
 app.get('/messages', authMiddleware, async (req, res) => {
   try {
     const messagesRes = await axios.get(`${USER_BACKEND}/admin/analytics`);
