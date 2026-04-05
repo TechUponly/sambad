@@ -17,16 +17,34 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           script: |
+            echo "=== PRE-DEPLOY DIAGNOSTICS ==="
             cd /var/www/html/public_html/sambad
+            echo "Git branch:"
+            git branch --show-current
+            echo "Git status:"
+            git status --short | head -20
+            echo "=== PULLING ==="
+            git stash
             git pull origin samvad
+            git stash pop || true
+            echo "=== POST-PULL: Check feedback route exists ==="
+            grep -c "feedback" app_user/backend/src/admin-routes.ts || echo "FEEDBACK NOT FOUND IN SOURCE!"
             echo "🚀 Deploying user backend..."
             cd /var/www/html/public_html/sambad/app_user/backend
             npm install
-            npm run build
+            npm run build 2>&1 | tail -5
+            echo "=== Check dist has feedback ==="
+            grep -c "feedback" dist/admin-routes.js || echo "FEEDBACK NOT IN DIST!"
+            echo "=== PM2 process info ==="
+            pm2 describe sambad-backend | head -20
             pm2 restart sambad-backend
             echo "🚀 Deploying admin backend..."
             cd /var/www/html/public_html/sambad/sambad_admin/backend
             npm install
             pm2 restart sambad-admin-backend
             pm2 save
+            echo "=== POST-DEPLOY: Test feedback endpoint ==="
+            sleep 3
+            curl -s http://localhost:4000/api/admin/feedback | head -c 200 || echo "FEEDBACK ENDPOINT FAILED!"
+            echo ""
             echo "✅ All backends deployed successfully!"
