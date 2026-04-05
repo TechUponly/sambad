@@ -25,6 +25,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
     _ConfigItem('min_app_version', 'Min App Version', 'Force update below this version (e.g. 1.0.0)', 'string'),
     _ConfigItem('max_group_members', 'Max Group Members', 'Maximum members per group chat', 'number'),
     _ConfigItem('private_session_timeout', 'Private Session Timeout', 'Minutes before private messages auto-clear', 'number'),
+    _ConfigItem('feedback_enabled', 'Enable User Feedback', 'Allow app users to submit feedback from Settings', 'bool'),
   ];
 
   @override

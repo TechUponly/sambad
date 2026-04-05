@@ -197,4 +197,32 @@ router.put('/users/:id/status', async (req, res) => {
   }
 });
 
+// ── Feedback ──────────────────────────────────────────────
+// GET all feedback (admin)
+router.get('/feedback', async (req, res) => {
+  try {
+    const feedbackRepo = AppDataSource.getRepository('UserFeedback');
+    const feedback = await feedbackRepo.find({ order: { created_at: 'DESC' } });
+    res.json(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({ error: 'Failed to fetch feedback' });
+  }
+});
+
+// PUT feedback status (admin mark as read/resolved)
+router.put('/feedback/:id', async (req, res) => {
+  try {
+    const feedbackRepo = AppDataSource.getRepository('UserFeedback');
+    const fb = await feedbackRepo.findOne({ where: { id: req.params.id } });
+    if (!fb) return res.status(404).json({ error: 'Feedback not found' });
+    if (req.body.status) (fb as any).status = req.body.status;
+    await feedbackRepo.save(fb);
+    res.json(fb);
+  } catch (error) {
+    console.error('Error updating feedback:', error);
+    res.status(500).json({ error: 'Failed to update feedback' });
+  }
+});
+
 export default router;

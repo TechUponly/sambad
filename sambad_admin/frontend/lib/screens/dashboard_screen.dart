@@ -7,6 +7,7 @@ import 'settings_screen.dart';
 import 'config_screen.dart';
 import 'rights_screen.dart';
 import 'audit_screen.dart';
+import 'feedback_screen.dart';
 import 'analytics_screen.dart';
 import 'notifications_screen.dart';
 import 'admin_users_screen.dart';
@@ -51,6 +52,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     _SidebarItem('Config', Icons.tune, ['super_admin']),
     _SidebarItem('Rights', Icons.admin_panel_settings, ['super_admin', 'admin']),
     _SidebarItem('Audit', Icons.history, ['super_admin', 'admin']),
+    _SidebarItem('Feedback', Icons.feedback, ['super_admin', 'admin']),
     _SidebarItem('Logout', Icons.logout, ['super_admin', 'admin', 'moderator', 'viewer']),
   ];
 
@@ -70,6 +72,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       case 'Config': return const ConfigScreen();
       case 'Rights': return const RightsScreen();
       case 'Audit': return const AuditScreen();
+      case 'Feedback': return const FeedbackScreen();
       default: return Center(child: Text('Unknown: $label'));
     }
   }

@@ -13,6 +13,12 @@ import 'create_group_dialog.dart';
 import 'screens/login_screen.dart';
 import 'theme/app_colors.dart';
 import 'utils/responsive.dart';
+import 'services/contacts_sync_service.dart';
+import 'services/theme_provider.dart';
+import 'screens/privacy_detail_page.dart';
+import 'config/app_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -268,212 +274,443 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildSettingsTab() {
-    return ListView(
-      padding: Responsive.paddingAll(context, 16),
-      children: [
-        // Account Section
-        _settingsHeader('Account'),
-        _settingsTile(
-          icon: Icons.person_outline,
-          title: 'Profile',
-          subtitle: _profileName ?? 'Edit your profile',
-          onTap: () async {
-            await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage()));
-            _loadProfile();
-          },
-        ),
+    final c = AppColors.of(context);
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final prefs = snapshot.data!;
+        bool notifEnabled = prefs.getBool('notifications_enabled') ?? true;
+        bool contactsSynced = prefs.getBool('contacts_synced') ?? false;
+        bool showOnline = prefs.getBool('show_online_status') ?? true;
 
-        SizedBox(height: Responsive.vertical(context, 16)),
+        return StatefulBuilder(
+          builder: (context, setInnerState) {
+            final themeProvider = context.watch<ThemeProvider>();
 
-        // Preferences Section
-        _settingsHeader('Preferences'),
-        _settingsTile(
-          icon: Icons.notifications_outlined,
-          title: 'Notifications',
-          subtitle: 'Message and group notifications',
-          trailing: Switch(
-            value: true,
-            onChanged: (_) {},
-            activeThumbColor: AppColors.primaryBlue,
-          ),
-        ),
-        _settingsTile(
-          icon: Icons.language,
-          title: 'Language',
-          subtitle: 'English',
-          onTap: () {},
-        ),
-
-        SizedBox(height: Responsive.vertical(context, 16)),
-
-        // Privacy Section
-        _settingsHeader('Privacy & Security'),
-        _settingsTile(
-          icon: Icons.lock_outline,
-          title: 'Privacy',
-          subtitle: 'End-to-end encryption enabled',
-          onTap: () {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                backgroundColor: AppColors.bgCard,
-                title: const Text('Privacy & Security', style: TextStyle(color: Colors.white)),
-                content: const Text(
-                  'Your chats are end-to-end encrypted using AES-256-GCM. Only you and your contacts can read your messages. We do not store your messages on our servers.\n\nPrivate messages are automatically deleted after 30 minutes of inactivity.',
-                  style: TextStyle(color: Colors.white70, height: 1.5),
+            return ListView(
+              padding: Responsive.paddingAll(context, 16),
+              children: [
+                // ── Account ──
+                _settingsHeader('Account'),
+                _settingsTile(
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                  subtitle: _profileName ?? 'Edit your profile',
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage()));
+                    _loadProfile();
+                  },
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Got it', style: TextStyle(color: AppColors.primaryBlue)),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Contacts ──
+                _settingsHeader('Contacts'),
+                _settingsTile(
+                  icon: Icons.contacts_outlined,
+                  title: 'Sync Phone Contacts',
+                  subtitle: contactsSynced ? 'Contacts synced ✅' : 'Find friends on Samvad',
+                  onTap: () async {
+                    try {
+                      final hasPermission = await ContactsSyncService.requestContactsPermission();
+                      if (!hasPermission) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Contact permission denied'), backgroundColor: Colors.red),
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Syncing contacts...'), backgroundColor: AppColors.primaryBlue, duration: Duration(seconds: 1)),
+                      );
+                      final result = await ContactsSyncService.syncContacts();
+                      if (!context.mounted) return;
+                      if (result['success'] == true) {
+                        setInnerState(() => contactsSynced = true);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('✅ Synced ${result['totalContacts']} contacts'), backgroundColor: Colors.green),
+                        );
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Preferences ──
+                _settingsHeader('Preferences'),
+                _settingsTile(
+                  icon: themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                  title: 'Dark Mode',
+                  subtitle: themeProvider.isDarkMode ? 'Dark theme active' : 'Light theme active',
+                  trailing: Switch(
+                    value: themeProvider.isDarkMode,
+                    onChanged: (val) => themeProvider.setDarkMode(val),
+                    activeThumbColor: AppColors.primaryBlue,
                   ),
-                ],
-              ),
-            );
-          },
-        ),
-        _settingsTile(
-          icon: Icons.block,
-          title: 'Blocked Contacts',
-          subtitle: 'Manage blocked users',
-          onTap: () {
-            final chatService = context.read<ChatService>();
-            final blocked = chatService.blockedContacts;
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                backgroundColor: AppColors.bgCard,
-                title: const Text('Blocked Contacts', style: TextStyle(color: Colors.white)),
-                content: blocked.isEmpty
-                    ? const Text('No blocked contacts', style: TextStyle(color: Colors.white70))
-                    : SizedBox(
-                        width: double.maxFinite,
-                        height: 200,
-                        child: ListView.builder(
-                          itemCount: blocked.length,
-                          itemBuilder: (_, i) => ListTile(
-                            title: Text(blocked[i], style: const TextStyle(color: Colors.white)),
-                            trailing: TextButton(
-                              onPressed: () {
-                                chatService.unblockContact(blocked[i]);
-                                Navigator.pop(ctx);
-                              },
-                              child: const Text('Unblock', style: TextStyle(color: AppColors.primaryBlue)),
-                            ),
+                ),
+                _settingsTile(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notifications',
+                  subtitle: notifEnabled ? 'Notifications enabled' : 'Notifications disabled',
+                  trailing: Switch(
+                    value: notifEnabled,
+                    onChanged: (val) async {
+                      await prefs.setBool('notifications_enabled', val);
+                      setInnerState(() => notifEnabled = val);
+                    },
+                    activeThumbColor: AppColors.primaryBlue,
+                  ),
+                ),
+                _settingsTile(
+                  icon: Icons.visibility,
+                  title: 'Show Online Status',
+                  subtitle: showOnline ? 'Others can see when you\'re online' : 'Your online status is hidden',
+                  trailing: Switch(
+                    value: showOnline,
+                    onChanged: (val) async {
+                      await prefs.setBool('show_online_status', val);
+                      setInnerState(() => showOnline = val);
+                    },
+                    activeThumbColor: AppColors.primaryBlue,
+                  ),
+                ),
+                _settingsTile(
+                  icon: Icons.language,
+                  title: 'Language',
+                  subtitle: 'English',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('More languages coming soon!'), backgroundColor: AppColors.primaryBlue),
+                    );
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Privacy & Security ──
+                _settingsHeader('Privacy & Security'),
+                _settingsTile(
+                  icon: Icons.shield_outlined,
+                  title: 'Privacy & Security',
+                  subtitle: 'How we protect your data',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyDetailPage()));
+                  },
+                ),
+                _settingsTile(
+                  icon: Icons.block,
+                  title: 'Blocked Contacts',
+                  subtitle: 'Manage blocked users',
+                  onTap: () {
+                    final chatService = context.read<ChatService>();
+                    final blocked = chatService.blockedContacts;
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: c.card,
+                        title: Text('Blocked Contacts', style: TextStyle(color: c.text)),
+                        content: blocked.isEmpty
+                            ? Text('No blocked contacts', style: TextStyle(color: c.textMuted))
+                            : SizedBox(
+                                width: double.maxFinite,
+                                height: 200,
+                                child: ListView.builder(
+                                  itemCount: blocked.length,
+                                  itemBuilder: (_, i) => ListTile(
+                                    title: Text(blocked[i], style: TextStyle(color: c.text)),
+                                    trailing: TextButton(
+                                      onPressed: () {
+                                        chatService.unblockContact(blocked[i]);
+                                        Navigator.pop(ctx);
+                                      },
+                                      child: const Text('Unblock', style: TextStyle(color: AppColors.primaryBlue)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Close', style: TextStyle(color: AppColors.primaryBlue)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Feedback ──
+                _settingsHeader('Feedback'),
+                _settingsTile(
+                  icon: Icons.feedback_outlined,
+                  title: 'Send Feedback',
+                  subtitle: 'Help us improve Private Samvad',
+                  onTap: () => _showFeedbackDialog(context, c),
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── About ──
+                _settingsHeader('About'),
+                _settingsTile(
+                  icon: Icons.info_outline,
+                  title: 'About Private Samvad',
+                  subtitle: 'Version 1.0.0',
+                  onTap: () {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'Private Samvad',
+                      applicationVersion: '1.0.0',
+                      applicationIcon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.lock, color: Colors.white, size: 32),
+                      ),
+                      children: [const Text('A secure, private messaging app with end-to-end encryption.')],
+                    );
+                  },
+                ),
+                _settingsTile(
+                  icon: Icons.description_outlined,
+                  title: 'Privacy Policy',
+                  subtitle: 'Read our privacy policy',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: Text('Privacy Policy', style: TextStyle(color: c.text)), backgroundColor: c.card, iconTheme: IconThemeData(color: c.text)),
+                        backgroundColor: c.bg,
+                        body: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(
+                            'Private Samvad respects your privacy.\n\n'
+                            '• Messages are end-to-end encrypted\n'
+                            '• We do not read or store your messages\n'
+                            '• Private conversations auto-delete\n'
+                            '• Your data is never shared with third parties\n'
+                            '• You can delete your account at any time\n\n'
+                            'For questions, contact us at support@uponlytech.com',
+                            style: TextStyle(color: c.textSecondary, fontSize: 16, height: 1.6),
                           ),
                         ),
                       ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Close', style: TextStyle(color: AppColors.primaryBlue)),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-
-        SizedBox(height: Responsive.vertical(context, 16)),
-
-        // About Section
-        _settingsHeader('About'),
-        _settingsTile(
-          icon: Icons.info_outline,
-          title: 'About Private Samvad',
-          subtitle: 'Version 1.0.0',
-          onTap: () {
-            showAboutDialog(
-              context: context,
-              applicationName: 'Private Samvad',
-              applicationVersion: '1.0.0',
-              applicationIcon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBlue,
-                  borderRadius: BorderRadius.circular(12),
+                    ));
+                  },
                 ),
-                child: const Icon(Icons.lock, color: Colors.white, size: 32),
-              ),
-              children: [
-                const Text('A secure, private messaging app with end-to-end encryption.'),
+
+                SizedBox(height: Responsive.vertical(context, 24)),
+
+                // ── Sign Out ──
+                Container(
+                  margin: Responsive.paddingSymmetric(context, h: 4),
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: c.card,
+                          title: Text('Sign Out', style: TextStyle(color: c.text)),
+                          content: Text('Are you sure you want to sign out?', style: TextStyle(color: c.textMuted)),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm != true || !mounted) return;
+                      await context.read<ChatService>().purgePrivateMessages();
+                      final p = await SharedPreferences.getInstance();
+                      await p.clear();
+                      await FirebaseAuth.instance.signOut();
+                      if (!mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    },
+                    icon: const Icon(Icons.logout, color: Colors.red),
+                    label: Text('Sign Out', style: TextStyle(color: Colors.red, fontSize: Responsive.fontSize(context, 16))),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      padding: Responsive.paddingSymmetric(context, v: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+                    ),
+                  ),
+                ),
+                SizedBox(height: Responsive.vertical(context, 40)),
               ],
             );
           },
-        ),
-        _settingsTile(
-          icon: Icons.description_outlined,
-          title: 'Privacy Policy',
-          subtitle: 'Read our privacy policy',
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => Scaffold(
-                appBar: AppBar(
-                  title: const Text('Privacy Policy', style: TextStyle(color: Colors.white)),
-                  backgroundColor: AppColors.bgCard,
-                  iconTheme: const IconThemeData(color: Colors.white),
-                ),
-                backgroundColor: AppColors.bgDark,
-                body: const SingleChildScrollView(
-                  padding: EdgeInsets.all(20),
-                  child: Text(
-                    'Private Samvad respects your privacy.\n\n'
-                    '• Messages are end-to-end encrypted\n'
-                    '• We do not read or store your messages\n'
-                    '• Private conversations auto-delete\n'
-                    '• Your data is never shared with third parties\n'
-                    '• You can delete your account at any time\n\n'
-                    'For questions, contact us at support@uponlytech.com',
-                    style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.6),
+        );
+      },
+    );
+  }
+
+  void _showFeedbackDialog(BuildContext context, AppColorSet c) {
+    String category = 'general';
+    int rating = 5;
+    final msgController = TextEditingController();
+    int wordCount = 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: c.card,
+          title: Text('Send Feedback', style: TextStyle(color: c.text)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Category
+                Text('Category', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  dropdownColor: c.card,
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    filled: true, fillColor: c.bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
+                  items: const [
+                    DropdownMenuItem(value: 'general', child: Text('General')),
+                    DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
+                    DropdownMenuItem(value: 'feature', child: Text('Feature Request')),
+                    DropdownMenuItem(value: 'security', child: Text('Security')),
+                  ],
+                  onChanged: (v) => setDialogState(() => category = v ?? 'general'),
                 ),
-              ),
-            ));
-          },
-        ),
+                const SizedBox(height: 14),
 
-        SizedBox(height: Responsive.vertical(context, 24)),
+                // Rating
+                Text('Rating', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) => GestureDetector(
+                    onTap: () => setDialogState(() => rating = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        i < rating ? Icons.star : Icons.star_border,
+                        color: i < rating ? Colors.amber : c.textHint,
+                        size: 32,
+                      ),
+                    ),
+                  )),
+                ),
+                const SizedBox(height: 14),
 
-        // Sign Out
-        Container(
-          margin: Responsive.paddingSymmetric(context, h: 4),
-          child: OutlinedButton.icon(
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  backgroundColor: AppColors.bgCard,
-                  title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
-                  content: const Text('Are you sure you want to sign out?', style: TextStyle(color: Colors.white70)),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Colors.red))),
+                // Message
+                Text('Your Feedback', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: msgController,
+                  maxLines: 4,
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    hintText: 'Tell us what you think...',
+                    hintStyle: TextStyle(color: c.textHint),
+                    filled: true, fillColor: c.bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                  ),
+                  onChanged: (v) {
+                    setDialogState(() {
+                      wordCount = v.trim().isEmpty ? 0 : v.trim().split(RegExp(r'\s+')).length;
+                    });
+                  },
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '$wordCount/100 words',
+                      style: TextStyle(
+                        color: wordCount > 100 ? Colors.red : c.textHint,
+                        fontSize: 12,
+                        fontWeight: wordCount > 100 ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
                   ],
                 ),
-              );
-              if (confirm != true || !mounted) return;
-              await context.read<ChatService>().purgePrivateMessages();
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              await FirebaseAuth.instance.signOut();
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            icon: const Icon(Icons.logout, color: Colors.red),
-            label: Text('Sign Out', style: TextStyle(color: Colors.red, fontSize: Responsive.fontSize(context, 16))),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.red),
-              padding: Responsive.paddingSymmetric(context, v: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+              ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: c.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: wordCount == 0 || wordCount > 100 ? null : () async {
+                Navigator.pop(ctx);
+                await _submitFeedback(context, msgController.text.trim(), category, rating);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue),
+              child: const Text('Submit'),
+            ),
+          ],
         ),
-        SizedBox(height: Responsive.vertical(context, 40)),
-      ],
+      ),
     );
+  }
+
+  Future<void> _submitFeedback(BuildContext context, String message, String category, int rating) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('current_user_id');
+      final userName = prefs.getString('current_user_name') ?? prefs.getString('profile_name');
+      final userPhone = prefs.getString('current_user_phone');
+      final token = prefs.getString('firebase_token');
+
+      final resp = await http.post(
+        Uri.parse('${AppConfig.apiBase}/feedback'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'userName': userName,
+          'userPhone': userPhone,
+          'message': message,
+          'category': category,
+          'rating': rating,
+        }),
+      );
+      if (!context.mounted) return;
+      if (resp.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Thank you for your feedback!'), backgroundColor: Colors.green),
+        );
+      } else if (resp.statusCode == 403) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Feedback is currently disabled'), backgroundColor: Colors.orange),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send feedback: ${resp.statusCode}'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Widget _settingsHeader(String title) {

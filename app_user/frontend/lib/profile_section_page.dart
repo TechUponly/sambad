@@ -3,11 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:io';
 import 'services/chat_service.dart';
 import 'screens/login_screen.dart';
 import 'theme/app_colors.dart';
 import 'utils/responsive.dart';
+import 'config/app_config.dart';
 
 class ProfileSectionPage extends StatefulWidget {
   const ProfileSectionPage({super.key});
@@ -22,6 +25,9 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   String? _gender;
+  bool _saving = false;
+  String? _phone;
+  String? _userId;
 
   @override
   void initState() {
@@ -38,17 +44,64 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
+    _userId = prefs.getString('current_user_id');
+    _phone = prefs.getString('current_user_phone');
+
+    // Load local first
     setState(() {
-      _nameController.text = prefs.getString('profile_name') ?? 'User';
+      _nameController.text = prefs.getString('profile_name') ?? prefs.getString('current_user_name') ?? '';
       _ageController.text = prefs.getString('profile_age') ?? '';
       _gender = prefs.getString('profile_gender') ?? 'Male';
       _profilePicPath = prefs.getString('profile_pic');
     });
+
+    // Then try to fetch from server to get latest
+    if (_userId != null && _userId!.isNotEmpty) {
+      try {
+        final headers = await _authHeaders();
+        final resp = await http.get(
+          Uri.parse('${AppConfig.apiBase}/users/$_userId'),
+          headers: headers,
+        );
+        if (resp.statusCode == 200) {
+          final data = jsonDecode(resp.body);
+          if (mounted) {
+            setState(() {
+              if (data['name'] != null && data['name'].toString().isNotEmpty) {
+                _nameController.text = data['name'];
+              }
+              if (data['age'] != null && data['age'].toString().isNotEmpty) {
+                _ageController.text = data['age'];
+              }
+              if (data['gender'] != null && data['gender'].toString().isNotEmpty) {
+                _gender = data['gender'];
+              }
+            });
+            // Save server data locally
+            await prefs.setString('profile_name', _nameController.text);
+            await prefs.setString('current_user_name', _nameController.text);
+            if (_ageController.text.isNotEmpty) await prefs.setString('profile_age', _ageController.text);
+            if (_gender != null) await prefs.setString('profile_gender', _gender!);
+          }
+        }
+      } catch (e) {
+        debugPrint('[Profile] Failed to fetch from server: $e');
+      }
+    }
+  }
+
+  Future<Map<String, String>> _authHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('firebase_token');
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
   }
 
   Future<void> _pickProfilePic() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) {
       setState(() => _profilePicPath = picked.path);
       final prefs = await SharedPreferences.getInstance();
@@ -58,15 +111,45 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
-    final prefs = await SharedPreferences.getInstance();
+    setState(() => _saving = true);
+
     final name = _nameController.text.trim();
+    final age = _ageController.text.trim();
+
+    // Save locally
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setString('profile_name', name);
     await prefs.setString('current_user_name', name);
-    await prefs.setString('profile_age', _ageController.text.trim());
+    await prefs.setString('profile_age', age);
     await prefs.setString('profile_gender', _gender ?? '');
+
+    // Sync to backend
+    if (_userId != null && _userId!.isNotEmpty) {
+      try {
+        final headers = await _authHeaders();
+        final resp = await http.put(
+          Uri.parse('${AppConfig.apiBase}/users/$_userId'),
+          headers: headers,
+          body: jsonEncode({
+            'name': name,
+            'age': age,
+            'gender': _gender ?? '',
+          }),
+        );
+        if (resp.statusCode == 200) {
+          debugPrint('[Profile] Synced to server ✅');
+        } else {
+          debugPrint('[Profile] Server sync failed: ${resp.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('[Profile] Server sync error: $e');
+      }
+    }
+
     if (!mounted) return;
+    setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile saved!'), backgroundColor: AppColors.primaryBlue),
+      const SnackBar(content: Text('✅ Profile saved!'), backgroundColor: AppColors.primaryBlue),
     );
   }
 
@@ -131,7 +214,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       backgroundColor: AppColors.bgDark,
-      body: Padding(
+      body: SingleChildScrollView(
         padding: Responsive.paddingAll(context, 20),
         child: Form(
           key: _formKey,
@@ -161,9 +244,14 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                   ],
                 ),
               ),
-              SizedBox(height: Responsive.vertical(context, 30)),
-              TextField(
+              SizedBox(height: Responsive.vertical(context, 12)),
+              // Phone number display (read-only)
+              if (_phone != null)
+                Text(_phone!, style: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 14))),
+              SizedBox(height: Responsive.vertical(context, 24)),
+              TextFormField(
                 controller: _nameController,
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Name',
@@ -175,7 +263,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                 ),
               ),
               SizedBox(height: Responsive.vertical(context, 16)),
-              TextField(
+              TextFormField(
                 controller: _ageController,
                 keyboardType: TextInputType.number,
                 style: const TextStyle(color: Colors.white),
@@ -208,10 +296,11 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
               SizedBox(
                 width: double.infinity,
                 height: Responsive.size(context, 50),
-                child: ElevatedButton(
-                  onPressed: _saveProfile,
+                child: ElevatedButton.icon(
+                  onPressed: _saving ? null : _saveProfile,
+                  icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save),
+                  label: Text(_saving ? 'Saving...' : 'Save Profile', style: TextStyle(fontSize: Responsive.fontSize(context, 16))),
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
-                  child: Text('Save Profile', style: TextStyle(fontSize: Responsive.fontSize(context, 16))),
                 ),
               ),
               SizedBox(height: Responsive.vertical(context, 16)),
@@ -246,7 +335,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                   ),
                 ),
               ),
-              const Spacer(),
+              SizedBox(height: Responsive.vertical(context, 24)),
               SizedBox(
                 width: double.infinity,
                 height: Responsive.size(context, 50),
@@ -265,7 +354,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                 height: Responsive.size(context, 50),
                 child: ElevatedButton(
                   onPressed: _deleteAccount,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
                   child: Text('Delete Account', style: TextStyle(fontSize: Responsive.fontSize(context, 16), color: Colors.white)),
                 ),
               ),

@@ -8,9 +8,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'services/chat_service.dart';
+import 'services/theme_provider.dart';
 import 'screens/login_screen.dart';
 import 'home_page.dart';
-import 'theme/app_theme.dart';
+import 'theme/app_colors.dart';
 
 // Global navigator key for showing snackbars from FCM handler
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -63,17 +64,6 @@ Future<void> main() async {
     }
   });
 
-  // Disable App Check temporarily to prevent crashes
-  // if (!kIsWeb) {
-  //   try {
-  //     await FirebaseAppCheck.instance.activate(
-  //       androidProvider: AndroidProvider.debug,
-  //     );
-  //   } catch (e) {
-  //     print('App Check activation failed: $e');
-  //   }
-  // }
-  
   // Screen protector only works on mobile
   if (!kIsWeb) {
     try {
@@ -87,12 +77,15 @@ Future<void> main() async {
                      prefs.containsKey('current_user_phone');
   
   runApp(
-    ChangeNotifierProvider(
-      create: (_) {
-        final svc = ChatService();
-        svc.init(); // Async init — loads contacts, messages, keys in background
-        return svc;
-      },
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) {
+          final svc = ChatService();
+          svc.init();
+          return svc;
+        }),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
       child: MyApp(isLoggedIn: isLoggedIn),
     ),
   );
@@ -105,10 +98,57 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Private Samvad',
-      theme: AppTheme.intuitiveTheme,
+      themeMode: themeProvider.themeMode,
+      // ── Dark Theme ──
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: AppColors.primaryBlue,
+        scaffoldBackgroundColor: AppColors.bgDark,
+        cardColor: AppColors.bgCard,
+        colorScheme: const ColorScheme.dark(
+          primary: AppColors.primaryBlue,
+          secondary: AppColors.accentGreen,
+          surface: AppColors.bgCard,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.bgCard,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: AppColors.bgCard,
+          selectedItemColor: AppColors.primaryBlue,
+          unselectedItemColor: Colors.white54,
+        ),
+      ),
+      // ── Light Theme ──
+      theme: ThemeData(
+        brightness: Brightness.light,
+        primaryColor: AppColors.primaryBlue,
+        scaffoldBackgroundColor: AppColors.bgLight,
+        cardColor: AppColors.bgCardLight,
+        colorScheme: ColorScheme.light(
+          primary: AppColors.primaryBlue,
+          secondary: AppColors.accentGreen,
+          surface: AppColors.bgCardLight,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.bgCardLight,
+          foregroundColor: AppColors.textDark,
+          elevation: 0,
+          iconTheme: IconThemeData(color: AppColors.textDark),
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: AppColors.bgCardLight,
+          selectedItemColor: AppColors.primaryBlue,
+          unselectedItemColor: Colors.grey,
+        ),
+      ),
       home: isLoggedIn ? const HomePage() : const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );

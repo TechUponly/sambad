@@ -347,6 +347,27 @@ app.get('/contacts', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Feedback proxy ──────────────────────────────────────
+app.get('/feedback', authMiddleware, async (req, res) => {
+  try {
+    const fbRes = await axios.get(`${USER_BACKEND}/admin/feedback`);
+    res.json(fbRes.data);
+  } catch (e) {
+    const err = e as Error;
+    res.status(500).json({ error: 'Failed to fetch feedback', details: err.message });
+  }
+});
+
+app.put('/feedback/:id', authMiddleware, async (req, res) => {
+  try {
+    const fbRes = await axios.put(`${USER_BACKEND}/admin/feedback/${req.params.id}`, req.body);
+    res.json(fbRes.data);
+  } catch (e) {
+    const err = e as Error;
+    res.status(500).json({ error: 'Failed to update feedback', details: err.message });
+  }
+});
+
 // ============================================
 // NOTIFICATION ENDPOINTS (admin+ only)
 // ============================================

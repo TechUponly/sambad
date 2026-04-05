@@ -30,7 +30,7 @@ AppDataSource.initialize()
     app.use('/api', (req, res, next) => {
       // Skip auth for login, health, app-config, and admin routes
       // (admin routes are called by the admin backend which has its own auth)
-      const openPaths = ['/users/login', '/health', '/app-config'];
+      const openPaths = ['/users/login', '/health', '/app-config', '/feedback'];
       if (openPaths.some(p => req.path === p)) return next();
       if (req.path.startsWith('/admin')) return next();
       return authenticateUser(req, res, next);
@@ -317,6 +317,9 @@ AppDataSource.initialize()
         
         if (req.body.name !== undefined) user.name = req.body.name;
         if (req.body.email !== undefined) user.email = req.body.email;
+        if (req.body.age !== undefined) (user as any).age = req.body.age;
+        if (req.body.gender !== undefined) (user as any).gender = req.body.gender;
+        if (req.body.profile_pic_url !== undefined) (user as any).profile_pic_url = req.body.profile_pic_url;
         user.last_active_at = new Date();
         
         const updated = await userRepo.save(user);
@@ -450,6 +453,45 @@ AppDataSource.initialize()
       } catch (error) {
         console.error('Error updating app config:', error);
         res.status(500).json({ error: 'Failed to update config' });
+      }
+    });
+
+    // ── User Feedback (public, auth required) ─────────────────
+    app.post('/api/feedback', async (req, res) => {
+      try {
+        // Check if feedback is enabled via settings
+        const settingRepo = AppDataSource.getRepository('Setting');
+        const feedbackSetting = await settingRepo.findOne({ where: { key: 'feedback_enabled' } }) as any;
+        if (feedbackSetting && feedbackSetting.value === 'false') {
+          return res.status(403).json({ error: 'Feedback is currently disabled' });
+        }
+
+        const { userId, userName, userPhone, message, category, rating } = req.body;
+        if (!message || !message.trim()) {
+          return res.status(400).json({ error: 'Feedback message is required' });
+        }
+
+        // 100 word limit
+        const wordCount = message.trim().split(/\s+/).length;
+        if (wordCount > 100) {
+          return res.status(400).json({ error: `Feedback must be 100 words or less (you wrote ${wordCount} words)` });
+        }
+
+        const feedbackRepo = AppDataSource.getRepository('UserFeedback');
+        const fb = feedbackRepo.create({
+          userId: userId || null,
+          userName: userName || null,
+          userPhone: userPhone || null,
+          message: message.trim(),
+          category: category || 'general',
+          rating: Math.min(5, Math.max(1, parseInt(rating) || 5)),
+          status: 'new',
+        });
+        const saved = await feedbackRepo.save(fb);
+        res.status(201).json({ success: true, id: (saved as any).id });
+      } catch (error) {
+        console.error('Error saving feedback:', error);
+        res.status(500).json({ error: 'Failed to save feedback' });
       }
     });
 

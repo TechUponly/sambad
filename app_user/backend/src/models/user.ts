@@ -25,4 +25,13 @@ export class User {
 
   @Column({ nullable: true })
   fcm_token: string;
+
+  @Column({ nullable: true })
+  age: string;
+
+  @Column({ nullable: true })
+  gender: string;
+
+  @Column({ nullable: true })
+  profile_pic_url: string;
 }

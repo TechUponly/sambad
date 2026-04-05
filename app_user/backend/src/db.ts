@@ -10,6 +10,7 @@ import { Group } from "./models/group";
 import { GroupMember } from "./models/group_member";
 import { Setting } from "./models/setting";
 import { Notification } from "./models/notification";
+import { UserFeedback } from "./models/feedback";
 
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = Number(process.env.DB_PORT || 5432);
@@ -24,7 +25,7 @@ export const AppDataSource = new DataSource({
   username: DB_USER,
   password: DB_PASSWORD,
   database: DB_NAME,
-  entities: [User, AdminUser, AdminLog, Contact, Message, Group, GroupMember, Setting, Notification],
+  entities: [User, AdminUser, AdminLog, Contact, Message, Group, GroupMember, Setting, Notification, UserFeedback],
   synchronize: true,
   logging: true,
 });

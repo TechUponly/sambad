@@ -163,4 +163,14 @@ class ApiService {
   Future<void> updateSetting(String key, dynamic value) async {
     await _dio.put('$baseUrl/settings/$key', data: {'value': value});
   }
+
+  // ── Feedback ──
+  Future<List<dynamic>> fetchFeedback() async {
+    final response = await _dio.get('$baseUrl/feedback');
+    return response.data;
+  }
+
+  Future<void> updateFeedbackStatus(String id, String status) async {
+    await _dio.put('$baseUrl/feedback/$id', data: {'status': status});
+  }
 }
