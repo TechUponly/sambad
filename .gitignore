@@ -6,16 +6,7 @@ _ARCHIVE_sambad_legacy/
 **/.dart_tool/
 **/flutter_assets/
 **/*.apk
-**/*.dill
-**/*.so
-**/incremental/
-**/merged_native_libs/
-
-# Flutter build artifacts
-**/build/
-**/.dart_tool/
-**/flutter_assets/
-**/*.apk
+**/*.aab
 **/*.dill
 **/*.so
 **/incremental/
@@ -26,3 +17,11 @@ dist/
 build_out/
 *.log
 flutter_*.log
+
+# Local dev files
+proxy_pass
+test_api.sh
+test_sync.sh
+check_sync_status.sh
+sambad.db
+sambad.db.backup
