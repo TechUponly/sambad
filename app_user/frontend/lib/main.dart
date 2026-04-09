@@ -43,9 +43,23 @@ Future<void> main() async {
     }
   }
 
+  // Dedup set to prevent duplicate notifications
+  final Set<String> shownNotificationIds = {};
+
   // Handle foreground messages
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     debugPrint('FCM foreground message: ${message.notification?.title}');
+    
+    // Deduplicate by messageId
+    final msgId = message.messageId ?? '${message.notification?.title}_${message.sentTime}';
+    if (shownNotificationIds.contains(msgId)) {
+      debugPrint('[FCM] Duplicate notification suppressed: $msgId');
+      return;
+    }
+    shownNotificationIds.add(msgId);
+    // Clean up old IDs after 60s to prevent memory leak
+    Future.delayed(const Duration(seconds: 60), () => shownNotificationIds.remove(msgId));
+    
     final ctx = navigatorKey.currentContext;
     if (ctx != null && message.notification != null) {
       ScaffoldMessenger.of(ctx).showSnackBar(

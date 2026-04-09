@@ -220,7 +220,7 @@ class ChatService extends ChangeNotifier {
         Uri.parse('${AppConfig.apiBase}/users/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
-      );
+      ).timeout(const Duration(seconds: 15));
       
       if (response.statusCode == 200) {
         final userData = jsonDecode(response.body);
@@ -240,6 +240,8 @@ class ChatService extends ChangeNotifier {
         // Connect WebSocket for real-time messages
         _connectWebSocket();
       }
+    } on TimeoutException {
+      debugPrint('[ChatService] Login timeout after 15s');
     } catch (e) {
       debugPrint('[ChatService] Login error: $e');
     }
@@ -437,9 +439,12 @@ class ChatService extends ChangeNotifier {
     );
     _initKey();
     _resetInactivityTimer();
-    fetchAdminSettings().then((_) => _applyAdminSettings());
-    fetchAppConfig();
-    registerFcmToken();
+    // Defer non-essential network calls — don't block app startup
+    Future.microtask(() async {
+      await fetchAppConfig();
+      await fetchAdminSettings().then((_) => _applyAdminSettings());
+      await registerFcmToken();
+    });
   }
 
   void _applyAdminSettings() {
@@ -538,10 +543,14 @@ class ChatService extends ChangeNotifier {
     // Also fetch contacts from API and merge
     try {
       final headers = await _authHeaders();
+      final userId = prefs.getString('current_user_id');
+      final uri = userId != null && userId.isNotEmpty
+          ? Uri.parse('${AppConfig.apiBase}/contacts?userId=$userId')
+          : Uri.parse('${AppConfig.apiBase}/contacts');
       final response = await http.get(
-        Uri.parse('${AppConfig.apiBase}/contacts'),
+        uri,
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final List<dynamic> apiContacts = jsonDecode(response.body);
         final Set<String> existingIds = _contacts.map((c) => c.id).toSet();
@@ -861,6 +870,30 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  /// Batch-add contacts from phone book — single save + single notify.
+  /// Much faster than calling addContactLocally() in a loop.
+  Future<int> addContactsBatch(List<Map<String, String>> contactsData) async {
+    int added = 0;
+    for (final data in contactsData) {
+      final phone = data['phone'] ?? '';
+      final name = data['name'] ?? '';
+      final id = data['id'] ?? '';
+      final normalizedPhone = normalizePhone(phone);
+      if (normalizedPhone.isEmpty) continue;
+      final isDuplicate = _contacts.any((c) => phonesMatch(c.phone, normalizedPhone));
+      if (!isDuplicate) {
+        _contacts.add(Contact(id: id, name: name, phone: normalizedPhone));
+        added++;
+      }
+    }
+    if (added > 0) {
+      await _saveContacts();
+      notifyListeners();
+      debugPrint('[ChatService] Batch added $added contacts (${contactsData.length} total, ${contactsData.length - added} duplicates skipped)');
+    }
+    return added;
+  }
+
   Future<void> addContact(Contact contact) async {
     // Normalize phone before storing
     final normalizedPhone = normalizePhone(contact.phone);
@@ -922,9 +955,28 @@ class ChatService extends ChangeNotifier {
           },
         );
       }
+    } on TimeoutException {
+      debugPrint('[ChatService] Backend sync timeout (contact still saved locally)');
     } catch (e) {
       debugPrint('[ChatService] Background sync error (contact still saved locally): $e');
     }
+  }
+
+  /// Update an existing contact's name and/or phone
+  Future<void> updateContact(String contactId, {String? name, String? phone}) async {
+    final index = _contacts.indexWhere((c) => c.id == contactId);
+    if (index == -1) return;
+    
+    final old = _contacts[index];
+    final updatedPhone = phone != null ? normalizePhone(phone) : old.phone;
+    _contacts[index] = Contact(
+      id: old.id,
+      name: name ?? old.name,
+      phone: updatedPhone.isNotEmpty ? updatedPhone : old.phone,
+    );
+    await _saveContacts();
+    notifyListeners();
+    debugPrint('[ChatService] Contact updated: ${_contacts[index].toJson()}');
   }
 
   // Duplicate _loadContactsFromAPI and _fetchContactsFromAPI removed — contact fetching is handled in init()
@@ -1021,10 +1073,10 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  /// Reset all in-memory state — call on logout or account deletion.
+  /// Reset all in-memory state AND persisted storage — call on logout or account deletion.
   /// This ensures the next login starts fresh without stale data.
   Future<void> reset() async {
-    debugPrint('[ChatService] Resetting all in-memory state');
+    debugPrint('[ChatService] Resetting all in-memory state + storage');
     _contacts.clear();
     _messages.clear();
     _groups.clear();
@@ -1044,7 +1096,19 @@ class ChatService extends ChangeNotifier {
     _appConfig = {};
     disconnectWebSocket();
     _inactivityTimer?.cancel();
+
+    // Also clear persisted storage so init() doesn't reload stale data
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_contactsKey);
+    await prefs.remove(_messagesKey);
+    await prefs.remove(_groupsKey);
+    await prefs.remove(_groupMembersKey);
+    await prefs.remove(_blockedKey);
+    await prefs.remove(_blockedGroupsKey);
+    await prefs.remove(_privateSessionKey);
+    await prefs.remove(_privateKeyPref);
+
     notifyListeners();
-    debugPrint('[ChatService] State reset complete');
+    debugPrint('[ChatService] State + storage reset complete');
   }
 }

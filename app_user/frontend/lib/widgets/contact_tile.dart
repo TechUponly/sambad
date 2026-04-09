@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/contact.dart';
 import 'package:provider/provider.dart';
 import '../services/chat_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/responsive.dart';
+import '../utils/phone_validator.dart';
 
 class ContactTile extends StatelessWidget {
   final Contact contact;
@@ -11,6 +13,136 @@ class ContactTile extends StatelessWidget {
   final int unreadCount;
 
   const ContactTile({super.key, required this.contact, this.onTap, this.unreadCount = 0});
+
+  void _showEditDialog(BuildContext context, ChatService svc) {
+    final nameCtrl = TextEditingController(text: contact.name);
+    final phoneCtrl = TextEditingController(text: contact.phone.replaceAll(RegExp(r'^\+\d{1,3}'), ''));
+    String countryCode = '+91';
+    // Try to extract country code from existing phone
+    final phoneMatch = RegExp(r'^(\+\d{1,3})(\d+)$').firstMatch(contact.phone);
+    if (phoneMatch != null) {
+      countryCode = phoneMatch.group(1)!;
+      phoneCtrl.text = phoneMatch.group(2)!;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: AppColors.bgCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Edit Contact', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    labelStyle: const TextStyle(color: Colors.white60),
+                    prefixIcon: const Icon(Icons.person, color: AppColors.primaryBlue),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        final codes = ['+91', '+1', '+44', '+61', '+86', '+81', '+49', '+33', '+971', '+92', '+880', '+65'];
+                        final selected = await showDialog<String>(
+                          context: ctx,
+                          builder: (c) => SimpleDialog(
+                            backgroundColor: AppColors.bgCard,
+                            title: const Text('Country Code', style: TextStyle(color: Colors.white)),
+                            children: codes.map((cc) => SimpleDialogOption(
+                              onPressed: () => Navigator.pop(c, cc),
+                              child: Text(cc, style: const TextStyle(color: Colors.white)),
+                            )).toList(),
+                          ),
+                        );
+                        if (selected != null) setDialogState(() => countryCode = selected);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(countryCode, style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold)),
+                            const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        style: const TextStyle(color: Colors.white),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(PhoneValidator.getExpectedDigits(countryCode)),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Phone',
+                          labelStyle: const TextStyle(color: Colors.white60),
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.08),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        final newName = nameCtrl.text.trim();
+                        final newPhone = '$countryCode${PhoneValidator.cleanPhone(phoneCtrl.text)}';
+                        if (newName.isEmpty) return;
+                        svc.updateContact(contact.id, name: newName, phone: newPhone);
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('$newName updated ✅'), backgroundColor: AppColors.primaryBlue),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      ),
+                      child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +193,9 @@ class ContactTile extends StatelessWidget {
             icon: const Icon(Icons.more_vert, color: Colors.white),
             color: const Color(0xFF23272F),
             onSelected: (value) async {
-              if (value == 'delete') {
+              if (value == 'edit') {
+                _showEditDialog(context, svc);
+              } else if (value == 'delete') {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => Dialog(
@@ -139,6 +273,10 @@ class ContactTile extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Text('Edit', style: TextStyle(color: Colors.white)),
+              ),
               if (!isBlocked)
                 const PopupMenuItem(
                   value: 'block',

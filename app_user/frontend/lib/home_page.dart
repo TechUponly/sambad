@@ -27,6 +27,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+  DateTime? _lastBackPress;
   int _currentIndex = 0;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -68,11 +69,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgDark,
-      appBar: _buildAppBar(),
-      body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
-      bottomNavigationBar: _buildBottomNav(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final now = DateTime.now();
+        if (_lastBackPress != null && now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
+          // Allow exit on double-tap
+          Navigator.of(context).pop();
+        } else {
+          _lastBackPress = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Press back again to exit'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bgDark,
+        appBar: _buildAppBar(),
+        body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
+        bottomNavigationBar: _buildBottomNav(),
+      ),
     );
   }
 
@@ -156,7 +177,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
               child: Row(
                 children: [
-                  Expanded(child: Text('Private Samvad welcomes you!', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Private Samvad welcomes you!', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        if (_currentPhone != null && _currentPhone!.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(top: Responsive.vertical(context, 4)),
+                            child: Text(_currentPhone!, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

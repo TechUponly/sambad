@@ -47,8 +47,10 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
             const SizedBox(height: 20),
             const Text('Select Members', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            Expanded(
-              child: Consumer<ChatService>(
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: Consumer<ChatService>(
                 builder: (context, chatService, _) {
                   final contacts = chatService.contacts;
                   if (contacts.isEmpty) {
@@ -120,6 +122,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                     },
                   );
                 },
+              ),
               ),
             ),
             const SizedBox(height: 20),

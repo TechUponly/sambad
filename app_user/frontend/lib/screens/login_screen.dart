@@ -35,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
   int _resendSeconds = 60;
   bool _canResend = false;
   String? _errorMessage;
+  String _statusMessage = '';
 
   @override
   void dispose() {
@@ -87,6 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _statusMessage = 'Sending OTP...';
     });
 
     try {
@@ -196,6 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _statusMessage = 'Verifying OTP...';
     });
     
     try {
@@ -230,6 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _saveAndNavigate() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      if (mounted) setState(() => _statusMessage = 'Setting up your account...');
       final token = await user.getIdToken();
       final prefs = await SharedPreferences.getInstance();
       
@@ -283,14 +287,20 @@ class _LoginScreenState extends State<LoginScreen> {
         final contacts = await FlutterContacts.getContacts(withProperties: true);
         if (mounted) {
           final chatService = context.read<ChatService>();
+          // Build batch list instead of adding one-by-one
+          final batch = <Map<String, String>>[];
           for (var contact in contacts) {
             if (contact.phones.isNotEmpty) {
-              chatService.addContactLocally(
-                id: contact.id,
-                name: contact.displayName,
-                phone: contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
-              );
+              batch.add({
+                'id': contact.id,
+                'name': contact.displayName,
+                'phone': contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
+              });
             }
+          }
+          if (batch.isNotEmpty) {
+            final added = await chatService.addContactsBatch(batch);
+            debugPrint('[LoginScreen] Synced $added new contacts from ${batch.length} phone contacts');
           }
         }
       }
@@ -390,7 +400,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _isLoading ? null : _sendOTP,
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)))),
                           child: _isLoading
-                              ? SizedBox(width: Responsive.size(context, 24), height: Responsive.size(context, 24), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(width: Responsive.size(context, 24), height: Responsive.size(context, 24), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                                    SizedBox(width: Responsive.horizontal(context, 8)),
+                                    Text(_statusMessage, style: TextStyle(fontSize: Responsive.fontSize(context, 14), color: Colors.white70)),
+                                  ],
+                                )
                               : Text('Send OTP', style: TextStyle(fontSize: Responsive.fontSize(context, 16), fontWeight: FontWeight.w600)),
                         ),
                       ),
