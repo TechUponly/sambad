@@ -54,10 +54,11 @@ class _AddContactDialogState extends State<AddContactDialog> {
     });
     
     final cleanedPhone = PhoneValidator.cleanPhone(_phoneCtrl.text);
+    final fullPhone = '$_countryCode$cleanedPhone';
     final contact = Contact(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameCtrl.text.trim(),
-      phone: cleanedPhone,
+      phone: fullPhone,
     );
     widget.onAdd(contact);
     if (!mounted) return;

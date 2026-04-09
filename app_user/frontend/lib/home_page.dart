@@ -32,6 +32,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   String? _profileName;
+  String? _currentPhone;
   late AnimationController _fabAnimController;
 
   @override
@@ -54,6 +55,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final name = prefs.getString('current_user_name') ?? 
                  prefs.getString('profile_name') ?? 
                  'User';
+    _currentPhone = prefs.getString('current_user_phone');
     if (mounted) setState(() => _profileName = name);
   }
 
@@ -129,7 +131,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final allContacts = chatService.contacts
             .where((c) => !chatService.blockedContacts.contains(c.id))
             .toList();
-        final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.phone.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+        final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) {
+          final q = _searchQuery.toLowerCase();
+          if (c.name.toLowerCase().contains(q)) return true;
+          if (c.phone.toLowerCase().contains(q)) return true;
+          // Also match if query looks like a phone number (strip formatting)
+          final queryDigits = q.replaceAll(RegExp(r'[^\d]'), '');
+          if (queryDigits.length >= 3) {
+            final phoneDigits = c.phone.replaceAll(RegExp(r'[^\d]'), '');
+            if (phoneDigits.contains(queryDigits)) return true;
+          }
+          return false;
+        }).toList();
 
         return Column(
           children: [
@@ -465,12 +478,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _settingsTile(
                   icon: Icons.info_outline,
                   title: 'About Private Samvad',
-                  subtitle: 'Version 1.0.0',
+                  subtitle: 'Version 4.0.11',
                   onTap: () {
                     showAboutDialog(
                       context: context,
                       applicationName: 'Private Samvad',
-                      applicationVersion: '1.0.0',
+                      applicationVersion: '4.0.11',
                       applicationIcon: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(12)),
@@ -527,6 +540,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                       );
                       if (confirm != true || !mounted) return;
+                      await context.read<ChatService>().reset();
                       await context.read<ChatService>().purgePrivateMessages();
                       final p = await SharedPreferences.getInstance();
                       await p.clear();

@@ -42,6 +42,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
               ),
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 20),
             const Text('Select Members', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
@@ -131,13 +132,15 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: _selectedContacts.isEmpty || _nameController.text.isEmpty ? null : () {
+                  onPressed: _nameController.text.trim().isEmpty ? null : () {
                     final chatService = context.read<ChatService>();
-                    chatService.addGroup(_nameController.text, memberIds: _selectedContacts.toList());
+                    chatService.addGroup(_nameController.text.trim(), memberIds: _selectedContacts.toList());
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Group "${_nameController.text}" created with ${_selectedContacts.length} members!'),
+                        content: Text(_selectedContacts.isEmpty 
+                          ? 'Group "${_nameController.text.trim()}" created!'
+                          : 'Group "${_nameController.text.trim()}" created with ${_selectedContacts.length} members!'),
                         backgroundColor: AppColors.primaryBlue,
                       ),
                     );
