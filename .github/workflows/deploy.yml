@@ -43,6 +43,23 @@ jobs:
             npm install
             pm2 restart sambad-admin-backend
             pm2 save
+            echo "=== Configure nginx WebSocket support ==="
+            # Add WebSocket proxy support if not already present
+            if ! grep -q "proxy_set_header Upgrade" /etc/nginx/sites-available/default 2>/dev/null; then
+              echo "Adding WebSocket proxy config to nginx..."
+              sudo sed -i '/location \/sambad-backend/,/}/ {
+                /proxy_pass/ a\
+                    proxy_http_version 1.1;\
+                    proxy_set_header Upgrade \$http_upgrade;\
+                    proxy_set_header Connection "upgrade";\
+                    proxy_set_header Host \$host;\
+                    proxy_read_timeout 86400;
+              }' /etc/nginx/sites-available/default
+              sudo nginx -t && sudo systemctl reload nginx
+              echo "✅ Nginx WebSocket config added"
+            else
+              echo "✅ Nginx WebSocket config already present"
+            fi
             echo "=== POST-DEPLOY: Test feedback endpoint ==="
             sleep 3
             curl -s http://localhost:4000/api/admin/feedback | head -c 200 || echo "FEEDBACK ENDPOINT FAILED!"

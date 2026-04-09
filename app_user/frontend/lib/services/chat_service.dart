@@ -1031,8 +1031,25 @@ class ChatService extends ChangeNotifier {
     debugPrint('[ChatService] Adding contact: ${normalizedContact.toJson()}');
     
     // Check for duplicates
-    final isDuplicate = _contacts.any((c) => phonesMatch(c.phone, normalizedContact.phone));
-    if (isDuplicate) {
+    final existingIndex = _contacts.indexWhere((c) => phonesMatch(c.phone, normalizedContact.phone));
+    if (existingIndex >= 0) {
+      final existingContact = _contacts[existingIndex];
+      // If the contact was blocked, unblock it and update the name
+      if (_blockedContacts.contains(existingContact.id)) {
+        await unblockContact(existingContact.id);
+        // Update name if changed
+        if (existingContact.name != normalizedContact.name) {
+          _contacts[existingIndex] = Contact(
+            id: existingContact.id,
+            name: normalizedContact.name,
+            phone: existingContact.phone,
+          );
+          await _saveContacts();
+          notifyListeners();
+        }
+        debugPrint('[ChatService] Unblocked and restored contact: ${existingContact.phone}');
+        return;
+      }
       debugPrint('[ChatService] Duplicate contact, skipping: ${normalizedContact.phone}');
       return;
     }

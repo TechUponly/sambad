@@ -398,7 +398,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity, height: Responsive.size(context, 56),
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _sendOTP,
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)))),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)))),
                           child: _isLoading
                               ? Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -409,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Text(_statusMessage, style: TextStyle(fontSize: Responsive.fontSize(context, 14), color: Colors.white70)),
                                   ],
                                 )
-                              : Text('Send OTP', style: TextStyle(fontSize: Responsive.fontSize(context, 16), fontWeight: FontWeight.w600)),
+                              : Text('Send OTP', style: TextStyle(fontSize: Responsive.fontSize(context, 16), fontWeight: FontWeight.w600, color: Colors.white)),
                         ),
                       ),
                     ] else ...[

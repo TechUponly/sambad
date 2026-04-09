@@ -151,6 +151,10 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('✅ Profile saved!'), backgroundColor: AppColors.primaryBlue),
     );
+    // Navigate back to home after a brief delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) Navigator.of(context).pop();
+    });
   }
 
   Future<void> _deleteAccount() async {
