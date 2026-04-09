@@ -65,6 +65,18 @@ class PhoneValidator {
       return 'Phone number must be $expected digits for $countryCode (entered ${cleaned.length})';
     }
 
+    // Reject all-same-digit numbers (e.g., 1111111111)
+    if (cleaned.split('').toSet().length == 1) {
+      return 'Please enter a valid phone number';
+    }
+
+    // Reject sequential patterns (e.g., 1234567890, 9876543210)
+    const ascending = '0123456789012345';
+    const descending = '9876543210987654';
+    if (ascending.contains(cleaned) || descending.contains(cleaned)) {
+      return 'Please enter a valid phone number';
+    }
+
     return null; // Valid
   }
 

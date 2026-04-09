@@ -440,6 +440,232 @@ AppDataSource.initialize()
       }
     });
 
+    // ═══════════════════════════════════════════════
+    //  GROUP API ENDPOINTS
+    // ═══════════════════════════════════════════════
+
+    // Create a new group
+    app.post('/api/groups', async (req, res) => {
+      try {
+        const groupRepo = AppDataSource.getRepository('Group');
+        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+        const userRepo = AppDataSource.getRepository('User');
+
+        const { name, createdBy, memberIds } = req.body;
+        if (!name || !createdBy) {
+          return res.status(400).json({ error: 'name and createdBy are required' });
+        }
+
+        const creator = await userRepo.findOne({ where: { id: createdBy } });
+        if (!creator) {
+          return res.status(404).json({ error: 'Creator user not found' });
+        }
+
+        const group = groupRepo.create({ name, created_by: creator });
+        const savedGroup = await groupRepo.save(group);
+
+        // Add creator as first member
+        const creatorMember = groupMemberRepo.create({ group: savedGroup, user: creator });
+        await groupMemberRepo.save(creatorMember);
+
+        // Add additional members
+        const addedMembers: string[] = [createdBy];
+        if (memberIds && Array.isArray(memberIds)) {
+          for (const memberId of memberIds) {
+            const memberUser = await userRepo.findOne({ where: { id: memberId } });
+            if (memberUser) {
+              const member = groupMemberRepo.create({ group: savedGroup, user: memberUser });
+              await groupMemberRepo.save(member);
+              addedMembers.push(memberId);
+            }
+          }
+        }
+
+        // Notify all members via WebSocket
+        for (const mId of addedMembers) {
+          sendToUser(mId, 'group_created', { 
+            groupId: savedGroup.id, 
+            name: savedGroup.name, 
+            createdBy: createdBy,
+            memberCount: addedMembers.length,
+          });
+        }
+
+        console.log(`✅ Group created: "${name}" with ${addedMembers.length} members`);
+        res.status(201).json({ ...savedGroup, memberIds: addedMembers });
+      } catch (error) {
+        console.error('Error creating group:', error);
+        res.status(500).json({ error: 'Failed to create group' });
+      }
+    });
+
+    // Get groups for a user
+    app.get('/api/groups', async (req, res) => {
+      try {
+        const userId = req.query.userId as string;
+        if (!userId) {
+          return res.status(400).json({ error: 'userId query parameter required' });
+        }
+
+        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+        const memberships = await groupMemberRepo.find({
+          where: { user: { id: userId } },
+          relations: ['group', 'group.created_by'],
+        });
+
+        const groups = memberships.map(m => ({
+          id: (m as any).group.id,
+          name: (m as any).group.name,
+          createdBy: (m as any).group.created_by?.id,
+          createdAt: (m as any).group.created_at,
+          joinedAt: (m as any).joined_at,
+        }));
+
+        res.json(groups);
+      } catch (error) {
+        console.error('Error fetching groups:', error);
+        res.status(500).json({ error: 'Failed to fetch groups' });
+      }
+    });
+
+    // Get group details with members
+    app.get('/api/groups/:id', async (req, res) => {
+      try {
+        const groupRepo = AppDataSource.getRepository('Group');
+        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+
+        const group = await groupRepo.findOne({ 
+          where: { id: req.params.id },
+          relations: ['created_by'],
+        });
+        if (!group) {
+          return res.status(404).json({ error: 'Group not found' });
+        }
+
+        const members = await groupMemberRepo.find({
+          where: { group: { id: req.params.id } },
+          relations: ['user'],
+        });
+
+        res.json({
+          ...group,
+          members: members.map(m => ({
+            userId: (m as any).user.id,
+            phone: (m as any).user.phone,
+            name: (m as any).user.username,
+            joinedAt: (m as any).joined_at,
+          })),
+        });
+      } catch (error) {
+        console.error('Error fetching group:', error);
+        res.status(500).json({ error: 'Failed to fetch group' });
+      }
+    });
+
+    // Add member to group
+    app.post('/api/groups/:id/members', async (req, res) => {
+      try {
+        const groupRepo = AppDataSource.getRepository('Group');
+        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+        const userRepo = AppDataSource.getRepository('User');
+
+        const group = await groupRepo.findOne({ where: { id: req.params.id } });
+        if (!group) return res.status(404).json({ error: 'Group not found' });
+
+        const { userId } = req.body;
+        const user = await userRepo.findOne({ where: { id: userId } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        // Check if already a member
+        const existing = await groupMemberRepo.findOne({
+          where: { group: { id: req.params.id }, user: { id: userId } },
+        });
+        if (existing) return res.status(409).json({ error: 'User already a member' });
+
+        const member = groupMemberRepo.create({ group, user });
+        await groupMemberRepo.save(member);
+
+        sendToUser(userId, 'group_joined', { groupId: group.id, name: group.name });
+        res.status(201).json(member);
+      } catch (error) {
+        console.error('Error adding group member:', error);
+        res.status(500).json({ error: 'Failed to add member' });
+      }
+    });
+
+    // Remove member from group
+    app.delete('/api/groups/:id/members/:userId', async (req, res) => {
+      try {
+        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+        const result = await groupMemberRepo.delete({
+          group: { id: req.params.id } as any,
+          user: { id: req.params.userId } as any,
+        });
+        if (result.affected === 0) return res.status(404).json({ error: 'Member not found' });
+
+        sendToUser(req.params.userId, 'group_removed', { groupId: req.params.id });
+        res.json({ success: true });
+      } catch (error) {
+        console.error('Error removing group member:', error);
+        res.status(500).json({ error: 'Failed to remove member' });
+      }
+    });
+
+    // Send group message (broadcasts to all members)
+    app.post('/api/groups/:id/messages', async (req, res) => {
+      try {
+        const messageRepo = AppDataSource.getRepository('Message');
+        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+        const userRepo = AppDataSource.getRepository('User');
+
+        const { fromId, content } = req.body;
+        if (!fromId || !content) {
+          return res.status(400).json({ error: 'fromId and content are required' });
+        }
+
+        // Save message with groupId as toId
+        const message = messageRepo.create({
+          content,
+          fromId,
+          toId: req.params.id, // group ID
+        });
+        const saved = await messageRepo.save(message);
+
+        // Get sender info
+        const sender = await userRepo.findOne({ where: { id: fromId } });
+
+        // Get all group members
+        const members = await groupMemberRepo.find({
+          where: { group: { id: req.params.id } },
+          relations: ['user'],
+        });
+
+        // Broadcast to all members except sender
+        const enrichedMessage = {
+          ...saved,
+          groupId: req.params.id,
+          fromPhone: sender?.phone,
+          fromName: sender?.username,
+          isGroupMessage: true,
+        };
+
+        for (const member of members) {
+          const memberUserId = (member as any).user.id;
+          if (memberUserId !== fromId) {
+            sendToUser(memberUserId, 'group_message', enrichedMessage);
+          }
+        }
+
+        // Echo to sender
+        sendToUser(fromId, 'group_message_sent', enrichedMessage);
+
+        res.status(201).json(saved);
+      } catch (error) {
+        console.error('Error sending group message:', error);
+        res.status(500).json({ error: 'Failed to send group message' });
+      }
+    });
+
     // Sync contacts endpoint
     app.post('/api/sync-contacts', async (req, res) => {
       try {

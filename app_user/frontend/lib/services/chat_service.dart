@@ -80,10 +80,15 @@ class ChatService extends ChangeNotifier {
 
   /// The invite text to share — from backend or hardcoded fallback
   String get inviteText => _appConfig['invite_text'] as String? ??
-      '🔒 Join me on Private Samvad — the secure messaging app!\n\n'
-      '📱 Download now:\n'
+      '🔒 *Private Samvad* — India\'s Secure Messaging App!\n\n'
+      '✅ End-to-end private chats\n'
+      '✅ Auto-delete messages\n'
+      '✅ No data stored on servers\n'
+      '✅ Group messaging\n\n'
+      '📲 Download now:\n'
       '▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n'
-      '🍎 iOS: https://apps.apple.com/app/private-samvad/id6744640580';
+      '🍎 iOS: https://apps.apple.com/app/private-samvad/id6744640580\n\n'
+      'Join me on Private Samvad! 🚀';
 
   /// Get auth headers for all HTTP calls
   Future<Map<String, String>> _authHeaders() async {
@@ -1127,6 +1132,8 @@ class ChatService extends ChangeNotifier {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     if (_groups.contains(trimmed)) return;
+    
+    // Save locally first for instant UI feedback
     _groups.add(trimmed);
     if (memberIds.isNotEmpty) {
       _groupMembers[trimmed] = List<String>.from(memberIds);
@@ -1134,6 +1141,29 @@ class ChatService extends ChangeNotifier {
     }
     await _saveGroups();
     notifyListeners();
+    
+    // Sync to backend
+    try {
+      final headers = await _authHeaders();
+      final response = await http.post(
+        Uri.parse('${AppConfig.apiBase}/groups'),
+        headers: headers,
+        body: jsonEncode({
+          'name': trimmed,
+          'createdBy': _currentUserId,
+          'memberIds': memberIds,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 201) {
+        debugPrint('[ChatService] Group "$trimmed" synced to backend');
+      } else {
+        debugPrint('[ChatService] Group sync failed: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('[ChatService] Group sync error: $e');
+      // Local group still works even if backend fails
+    }
   }
 
   Future<void> deleteGroup(String name) async {
