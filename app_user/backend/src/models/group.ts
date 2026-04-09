@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
-import { User } from './user';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity('groups')
 export class Group {
@@ -9,9 +8,11 @@ export class Group {
   @Column()
   name: string;
 
-  @ManyToOne(() => User, user => user.id)
-  @JoinColumn({ name: 'created_by' })
-  created_by: User;
+  @Column({ nullable: true, default: '' })
+  description: string;
+
+  @Column({ name: 'created_by' })
+  created_by: string;
 
   @CreateDateColumn()
   created_at: Date;

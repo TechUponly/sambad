@@ -149,8 +149,14 @@ class ContactTile extends StatelessWidget {
     final svc = Provider.of<ChatService>(context);
     final isBlocked = svc.blockedContacts.contains(contact.id);
     final isOnline = svc.isOnline(contact.id);
-    return ListTile(
-      onTap: onTap,
+    return Opacity(
+      opacity: isBlocked ? 0.5 : 1.0,
+      child: ListTile(
+      onTap: isBlocked ? () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${contact.name} is blocked. Unblock to chat.'), backgroundColor: Colors.red.shade700, duration: const Duration(seconds: 2)),
+        );
+      } : onTap,
       contentPadding: Responsive.paddingSymmetric(context, v: 6, h: 8),
       leading: Stack(
         children: [
@@ -178,8 +184,14 @@ class ContactTile extends StatelessWidget {
             ),
         ],
       ),
-      title: Text(contact.name, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
-      subtitle: Text(contact.phone, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),
+      title: Text(contact.name, style: TextStyle(color: isBlocked ? Colors.white38 : Colors.white, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
+      subtitle: isBlocked
+          ? Row(children: [
+              Icon(Icons.block, color: Colors.redAccent, size: Responsive.fontSize(context, 13)),
+              const SizedBox(width: 4),
+              Text('Blocked', style: TextStyle(color: Colors.redAccent, fontSize: Responsive.fontSize(context, 13), fontWeight: FontWeight.w500)),
+            ])
+          : Text(contact.phone, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -295,6 +307,7 @@ class ContactTile extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

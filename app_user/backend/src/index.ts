@@ -441,86 +441,59 @@ AppDataSource.initialize()
     });
 
     // ═══════════════════════════════════════════════
-    //  GROUP API ENDPOINTS
+    //  GROUP API ENDPOINTS (Full-featured)
     // ═══════════════════════════════════════════════
 
-    // Create a new group
+    // Create a new group — creator is auto-admin
     app.post('/api/groups', async (req, res) => {
       try {
         const groupRepo = AppDataSource.getRepository('Group');
-        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
-        const userRepo = AppDataSource.getRepository('User');
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const { name, description, createdBy, memberIds } = req.body;
+        if (!name || !createdBy) return res.status(400).json({ error: 'name and createdBy required' });
 
-        const { name, createdBy, memberIds } = req.body;
-        if (!name || !createdBy) {
-          return res.status(400).json({ error: 'name and createdBy are required' });
-        }
+        const group = groupRepo.create({ name, description: description || '', created_by: createdBy });
+        const saved = await groupRepo.save(group);
 
-        const creator = await userRepo.findOne({ where: { id: createdBy } });
-        if (!creator) {
-          return res.status(404).json({ error: 'Creator user not found' });
-        }
+        // Add creator as admin
+        await memberRepo.save(memberRepo.create({ group_id: saved.id, user_id: createdBy, role: 'admin' }));
+        const addedMembers = [createdBy];
 
-        const group = groupRepo.create({ name, created_by: creator });
-        const savedGroup = await groupRepo.save(group);
-
-        // Add creator as first member
-        const creatorMember = groupMemberRepo.create({ group: savedGroup, user: creator });
-        await groupMemberRepo.save(creatorMember);
-
-        // Add additional members
-        const addedMembers: string[] = [createdBy];
         if (memberIds && Array.isArray(memberIds)) {
-          for (const memberId of memberIds) {
-            const memberUser = await userRepo.findOne({ where: { id: memberId } });
-            if (memberUser) {
-              const member = groupMemberRepo.create({ group: savedGroup, user: memberUser });
-              await groupMemberRepo.save(member);
-              addedMembers.push(memberId);
+          for (const mid of memberIds) {
+            if (mid !== createdBy) {
+              await memberRepo.save(memberRepo.create({ group_id: saved.id, user_id: mid, role: 'member' }));
+              addedMembers.push(mid);
+              sendToUser(mid, 'group_added', { groupId: saved.id, groupName: name });
             }
           }
         }
 
-        // Notify all members via WebSocket
-        for (const mId of addedMembers) {
-          sendToUser(mId, 'group_created', { 
-            groupId: savedGroup.id, 
-            name: savedGroup.name, 
-            createdBy: createdBy,
-            memberCount: addedMembers.length,
-          });
-        }
-
-        console.log(`✅ Group created: "${name}" with ${addedMembers.length} members`);
-        res.status(201).json({ ...savedGroup, memberIds: addedMembers });
+        console.log(`✅ Group created: ${name} (${saved.id}), members: ${addedMembers.length}`);
+        res.status(201).json({ ...saved, memberCount: addedMembers.length });
       } catch (error) {
         console.error('Error creating group:', error);
         res.status(500).json({ error: 'Failed to create group' });
       }
     });
 
-    // Get groups for a user
+    // List groups for a user (with role + member count)
     app.get('/api/groups', async (req, res) => {
       try {
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const groupRepo = AppDataSource.getRepository('Group');
         const userId = req.query.userId as string;
-        if (!userId) {
-          return res.status(400).json({ error: 'userId query parameter required' });
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+
+        const memberships = await memberRepo.find({ where: { user_id: userId } });
+        const groups = [];
+        for (const m of memberships) {
+          const group = await groupRepo.findOne({ where: { id: (m as any).group_id } });
+          if (group) {
+            const count = await memberRepo.count({ where: { group_id: (m as any).group_id } });
+            groups.push({ ...group, memberCount: count, myRole: (m as any).role });
+          }
         }
-
-        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
-        const memberships = await groupMemberRepo.find({
-          where: { user: { id: userId } },
-          relations: ['group', 'group.created_by'],
-        });
-
-        const groups = memberships.map(m => ({
-          id: (m as any).group.id,
-          name: (m as any).group.name,
-          createdBy: (m as any).group.created_by?.id,
-          createdAt: (m as any).group.created_at,
-          joinedAt: (m as any).joined_at,
-        }));
-
         res.json(groups);
       } catch (error) {
         console.error('Error fetching groups:', error);
@@ -528,143 +501,230 @@ AppDataSource.initialize()
       }
     });
 
-    // Get group details with members
+    // Get group details with full member list
     app.get('/api/groups/:id', async (req, res) => {
       try {
         const groupRepo = AppDataSource.getRepository('Group');
-        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
-
-        const group = await groupRepo.findOne({ 
-          where: { id: req.params.id },
-          relations: ['created_by'],
-        });
-        if (!group) {
-          return res.status(404).json({ error: 'Group not found' });
-        }
-
-        const members = await groupMemberRepo.find({
-          where: { group: { id: req.params.id } },
-          relations: ['user'],
-        });
-
-        res.json({
-          ...group,
-          members: members.map(m => ({
-            userId: (m as any).user.id,
-            phone: (m as any).user.phone,
-            name: (m as any).user.username,
-            joinedAt: (m as any).joined_at,
-          })),
-        });
-      } catch (error) {
-        console.error('Error fetching group:', error);
-        res.status(500).json({ error: 'Failed to fetch group' });
-      }
-    });
-
-    // Add member to group
-    app.post('/api/groups/:id/members', async (req, res) => {
-      try {
-        const groupRepo = AppDataSource.getRepository('Group');
-        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
+        const memberRepo = AppDataSource.getRepository('GroupMember');
         const userRepo = AppDataSource.getRepository('User');
 
         const group = await groupRepo.findOne({ where: { id: req.params.id } });
         if (!group) return res.status(404).json({ error: 'Group not found' });
 
-        const { userId } = req.body;
-        const user = await userRepo.findOne({ where: { id: userId } });
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        const memberships = await memberRepo.find({ where: { group_id: req.params.id } });
+        const members = [];
+        for (const m of memberships) {
+          const user = await userRepo.findOne({ where: { id: (m as any).user_id } });
+          members.push({
+            userId: (m as any).user_id,
+            role: (m as any).role,
+            joinedAt: (m as any).joined_at,
+            name: user ? ((user as any).username || (user as any).name || 'Unknown') : 'Unknown',
+            phone: user ? (user as any).phone : '',
+          });
+        }
+        res.json({ ...group, members, memberCount: members.length });
+      } catch (error) {
+        console.error('Error fetching group details:', error);
+        res.status(500).json({ error: 'Failed to fetch group details' });
+      }
+    });
 
-        // Check if already a member
-        const existing = await groupMemberRepo.findOne({
-          where: { group: { id: req.params.id }, user: { id: userId } },
-        });
-        if (existing) return res.status(409).json({ error: 'User already a member' });
+    // Update group name/description (admin only)
+    app.put('/api/groups/:id', async (req, res) => {
+      try {
+        const groupRepo = AppDataSource.getRepository('Group');
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const { name, description, userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
 
-        const member = groupMemberRepo.create({ group, user });
-        await groupMemberRepo.save(member);
+        const membership = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: userId } });
+        if (!membership || (membership as any).role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
-        sendToUser(userId, 'group_joined', { groupId: group.id, name: group.name });
+        const group = await groupRepo.findOne({ where: { id: req.params.id } });
+        if (!group) return res.status(404).json({ error: 'Group not found' });
+
+        if (name) (group as any).name = name;
+        if (description !== undefined) (group as any).description = description;
+        const updated = await groupRepo.save(group);
+
+        const allMembers = await memberRepo.find({ where: { group_id: req.params.id } });
+        for (const m of allMembers) {
+          if ((m as any).user_id !== userId) {
+            sendToUser((m as any).user_id, 'group_updated', { groupId: req.params.id, name: (updated as any).name, description: (updated as any).description });
+          }
+        }
+        res.json(updated);
+      } catch (error) {
+        console.error('Error updating group:', error);
+        res.status(500).json({ error: 'Failed to update group' });
+      }
+    });
+
+    // Add member (admin only)
+    app.post('/api/groups/:id/members', async (req, res) => {
+      try {
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const { userId, addedBy } = req.body;
+        if (!userId || !addedBy) return res.status(400).json({ error: 'userId and addedBy required' });
+
+        const admin = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: addedBy } });
+        if (!admin || (admin as any).role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+
+        const existing = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: userId } });
+        if (existing) return res.status(409).json({ error: 'Already a member' });
+
+        const member = await memberRepo.save(memberRepo.create({ group_id: req.params.id, user_id: userId, role: 'member' }));
+        const groupRepo = AppDataSource.getRepository('Group');
+        const group = await groupRepo.findOne({ where: { id: req.params.id } });
+        sendToUser(userId, 'group_added', { groupId: req.params.id, groupName: (group as any)?.name });
         res.status(201).json(member);
       } catch (error) {
-        console.error('Error adding group member:', error);
+        console.error('Error adding member:', error);
         res.status(500).json({ error: 'Failed to add member' });
       }
     });
 
-    // Remove member from group
+    // Remove member (admin only)
     app.delete('/api/groups/:id/members/:userId', async (req, res) => {
       try {
-        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
-        const result = await groupMemberRepo.delete({
-          group: { id: req.params.id } as any,
-          user: { id: req.params.userId } as any,
-        });
-        if (result.affected === 0) return res.status(404).json({ error: 'Member not found' });
-
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const removedBy = req.query.removedBy as string;
+        if (removedBy) {
+          const admin = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: removedBy } });
+          if (!admin || (admin as any).role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+        }
+        await memberRepo.delete({ group_id: req.params.id, user_id: req.params.userId });
         sendToUser(req.params.userId, 'group_removed', { groupId: req.params.id });
         res.json({ success: true });
       } catch (error) {
-        console.error('Error removing group member:', error);
+        console.error('Error removing member:', error);
         res.status(500).json({ error: 'Failed to remove member' });
       }
     });
 
-    // Send group message (broadcasts to all members)
-    app.post('/api/groups/:id/messages', async (req, res) => {
+    // Change member role (admin only)
+    app.put('/api/groups/:id/members/:userId/role', async (req, res) => {
       try {
-        const messageRepo = AppDataSource.getRepository('Message');
-        const groupMemberRepo = AppDataSource.getRepository('GroupMember');
-        const userRepo = AppDataSource.getRepository('User');
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const { role, changedBy } = req.body;
+        if (!changedBy || !['admin', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid params' });
 
-        const { fromId, content } = req.body;
-        if (!fromId || !content) {
-          return res.status(400).json({ error: 'fromId and content are required' });
-        }
+        const admin = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: changedBy } });
+        if (!admin || (admin as any).role !== 'admin') return res.status(403).json({ error: 'Admin only' });
 
-        // Save message with groupId as toId
-        const message = messageRepo.create({
-          content,
-          fromId,
-          toId: req.params.id, // group ID
-        });
-        const saved = await messageRepo.save(message);
+        const membership = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: req.params.userId } });
+        if (!membership) return res.status(404).json({ error: 'Member not found' });
 
-        // Get sender info
-        const sender = await userRepo.findOne({ where: { id: fromId } });
+        (membership as any).role = role;
+        await memberRepo.save(membership);
+        sendToUser(req.params.userId, 'group_role_changed', { groupId: req.params.id, role });
+        res.json({ success: true, role });
+      } catch (error) {
+        console.error('Error changing role:', error);
+        res.status(500).json({ error: 'Failed to change role' });
+      }
+    });
 
-        // Get all group members
-        const members = await groupMemberRepo.find({
-          where: { group: { id: req.params.id } },
-          relations: ['user'],
-        });
+    // Exit group (self-remove, auto-promote next admin)
+    app.post('/api/groups/:id/exit', async (req, res) => {
+      try {
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
 
-        // Broadcast to all members except sender
-        const enrichedMessage = {
-          ...saved,
-          groupId: req.params.id,
-          fromPhone: sender?.phone,
-          fromName: sender?.username,
-          isGroupMessage: true,
-        };
+        await memberRepo.delete({ group_id: req.params.id, user_id: userId });
 
-        for (const member of members) {
-          const memberUserId = (member as any).user.id;
-          if (memberUserId !== fromId) {
-            sendToUser(memberUserId, 'group_message', enrichedMessage);
+        // If last admin, promote next member
+        const admins = await memberRepo.find({ where: { group_id: req.params.id, role: 'admin' } });
+        if (admins.length === 0) {
+          const next = await memberRepo.findOne({ where: { group_id: req.params.id } });
+          if (next) {
+            (next as any).role = 'admin';
+            await memberRepo.save(next);
+            sendToUser((next as any).user_id, 'group_role_changed', { groupId: req.params.id, role: 'admin' });
+          } else {
+            // No members left — delete group
+            await AppDataSource.getRepository('Group').delete({ id: req.params.id });
           }
         }
 
-        // Echo to sender
-        sendToUser(fromId, 'group_message_sent', enrichedMessage);
+        // Notify remaining
+        const remaining = await memberRepo.find({ where: { group_id: req.params.id } });
+        for (const m of remaining) {
+          sendToUser((m as any).user_id, 'member_exited', { groupId: req.params.id, userId });
+        }
+        res.json({ success: true });
+      } catch (error) {
+        console.error('Error exiting group:', error);
+        res.status(500).json({ error: 'Failed to exit group' });
+      }
+    });
 
+    // Delete group (admin only)
+    app.delete('/api/groups/:id', async (req, res) => {
+      try {
+        const groupRepo = AppDataSource.getRepository('Group');
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const userId = req.query.userId as string;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+
+        const membership = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: userId } });
+        if (!membership || (membership as any).role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+
+        const allMembers = await memberRepo.find({ where: { group_id: req.params.id } });
+        for (const m of allMembers) {
+          if ((m as any).user_id !== userId) sendToUser((m as any).user_id, 'group_deleted', { groupId: req.params.id });
+        }
+
+        await memberRepo.delete({ group_id: req.params.id });
+        await groupRepo.delete({ id: req.params.id });
+        res.json({ success: true });
+      } catch (error) {
+        console.error('Error deleting group:', error);
+        res.status(500).json({ error: 'Failed to delete group' });
+      }
+    });
+
+    // Send group message (with sender info broadcast)
+    app.post('/api/groups/:id/messages', async (req, res) => {
+      try {
+        const msgRepo = AppDataSource.getRepository('Message');
+        const memberRepo = AppDataSource.getRepository('GroupMember');
+        const userRepo = AppDataSource.getRepository('User');
+        const { fromId, content } = req.body;
+        if (!fromId || !content) return res.status(400).json({ error: 'fromId and content required' });
+
+        const senderMembership = await memberRepo.findOne({ where: { group_id: req.params.id, user_id: fromId } });
+        if (!senderMembership) return res.status(403).json({ error: 'Not a member' });
+
+        const message = msgRepo.create({ from_id: fromId, to_id: req.params.id, content, status: 'sent' });
+        const saved = await msgRepo.save(message);
+
+        const sender = await userRepo.findOne({ where: { id: fromId } });
+        const members = await memberRepo.find({ where: { group_id: req.params.id } });
+
+        const enriched = {
+          ...saved,
+          groupId: req.params.id,
+          fromPhone: (sender as any)?.phone,
+          fromName: (sender as any)?.username || (sender as any)?.name || 'Unknown',
+          senderRole: (senderMembership as any).role,
+          isGroupMessage: true,
+        };
+
+        for (const m of members) {
+          if ((m as any).user_id !== fromId) sendToUser((m as any).user_id, 'group_message', enriched);
+        }
+        sendToUser(fromId, 'group_message_sent', enriched);
         res.status(201).json(saved);
       } catch (error) {
         console.error('Error sending group message:', error);
         res.status(500).json({ error: 'Failed to send group message' });
       }
     });
+
+
 
     // Sync contacts endpoint
     app.post('/api/sync-contacts', async (req, res) => {

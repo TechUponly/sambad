@@ -10,6 +10,7 @@ import 'ai_bot_chat_page.dart';
 import 'add_contact_dialog.dart';
 import 'profile_section_page.dart';
 import 'create_group_dialog.dart';
+import 'group_info_page.dart';
 import 'screens/login_screen.dart';
 import 'theme/app_colors.dart';
 import 'utils/responsive.dart';
@@ -149,9 +150,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildChatsTab() {
     return Consumer<ChatService>(
       builder: (context, chatService, _) {
-        final allContacts = chatService.contacts
-            .where((c) => !chatService.blockedContacts.contains(c.id))
-            .toList();
+        final allContacts = chatService.contacts.toList();
         final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) {
           final q = _searchQuery.toLowerCase();
           if (c.name.toLowerCase().contains(q)) return true;
@@ -278,7 +277,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildGroupsTab() {
     return Consumer<ChatService>(builder: (context, chatService, _) {
-      final groups = chatService.groups.where((g) => !chatService.blockedGroups.contains(g)).toList();
+      final groups = chatService.groups.toList();
       if (groups.isEmpty) {
         return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.groups, size: Responsive.size(context, 64), color: Colors.white54),
@@ -300,14 +299,77 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         itemCount: groups.length,
         itemBuilder: (context, index) {
           final group = groups[index];
-          return Container(
-            margin: EdgeInsets.only(bottom: Responsive.vertical(context, 8)),
-            decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
-            child: ListTile(
-              leading: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
-              title: Text(group, style: const TextStyle(color: Colors.white)),
-              subtitle: Text('Tap to open', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 14))),
-              onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))); },
+          final isBlocked = chatService.blockedGroups.contains(group);
+          final memberCount = chatService.membersForGroup(group).length;
+          return Opacity(
+            opacity: isBlocked ? 0.5 : 1.0,
+            child: Container(
+              margin: EdgeInsets.only(bottom: Responsive.vertical(context, 8)),
+              decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
+                title: Text(group, style: TextStyle(color: isBlocked ? Colors.white38 : Colors.white, fontWeight: FontWeight.w600)),
+                subtitle: isBlocked
+                    ? Row(children: [
+                        Icon(Icons.block, color: Colors.redAccent, size: Responsive.fontSize(context, 13)),
+                        const SizedBox(width: 4),
+                        Text('Blocked', style: TextStyle(color: Colors.redAccent, fontSize: Responsive.fontSize(context, 13))),
+                      ])
+                    : Text(memberCount > 0 ? '$memberCount members' : 'Tap to open', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 14))),
+                onTap: isBlocked
+                    ? () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group is blocked. Unblock to chat.'), backgroundColor: Colors.red.shade700))
+                    : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))),
+                trailing: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white54),
+                  color: const Color(0xFF23272F),
+                  onSelected: (value) async {
+                    if (value == 'info') {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group)));
+                    } else if (value == 'exit') {
+                      final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.bgCard,
+                        title: const Text('Exit Group', style: TextStyle(color: Colors.white)),
+                        content: Text('Leave "$group"?', style: const TextStyle(color: Colors.white70)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange), child: const Text('Exit')),
+                        ],
+                      ));
+                      if (confirm == true) {
+                        chatService.removeGroupLocally(group);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Left "$group"'), backgroundColor: Colors.orange));
+                      }
+                    } else if (value == 'block') {
+                      chatService.blockGroup(group);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group blocked')));
+                    } else if (value == 'unblock') {
+                      chatService.unblockGroup(group);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group unblocked')));
+                    } else if (value == 'delete') {
+                      final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.bgCard,
+                        title: const Text('Delete Group', style: TextStyle(color: Colors.white)),
+                        content: Text('Delete "$group" permanently?', style: const TextStyle(color: Colors.white70)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Delete')),
+                        ],
+                      ));
+                      if (confirm == true) {
+                        chatService.removeGroupLocally(group);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group deleted'), backgroundColor: Colors.redAccent));
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'info', child: Text('Group Info', style: TextStyle(color: Colors.white))),
+                    if (!isBlocked) const PopupMenuItem(value: 'block', child: Text('Block', style: TextStyle(color: Colors.white))),
+                    if (isBlocked) const PopupMenuItem(value: 'unblock', child: Text('Unblock', style: TextStyle(color: Colors.white))),
+                    const PopupMenuItem(value: 'exit', child: Text('Exit Group', style: TextStyle(color: Colors.orange))),
+                    const PopupMenuItem(value: 'delete', child: Text('Delete Group', style: TextStyle(color: Colors.redAccent))),
+                  ],
+                ),
+              ),
             ),
           );
         },

@@ -639,6 +639,18 @@ class ChatService extends ChangeNotifier {
   List<String> get groups => _groups;
   Map<String, List<String>> get groupMembers => _groupMembers;
   List<String> get blockedGroups => _blockedGroups;
+  String? get currentUserId => _currentUserId;
+
+  /// Public auth headers for external use (e.g. GroupInfoPage)
+  Future<Map<String, String>> authHeaders() => _authHeaders();
+
+  /// Remove a group from local storage
+  void removeGroupLocally(String name) {
+    _groups.remove(name);
+    _groupMembers.remove(name);
+    _saveGroups();
+    notifyListeners();
+  }
 
   List<String> membersForGroup(String name) => _groupMembers[name] ?? const [];
 
