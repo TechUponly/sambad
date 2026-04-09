@@ -239,6 +239,9 @@ class ChatService extends ChangeNotifier {
         
         // Connect WebSocket for real-time messages
         _connectWebSocket();
+        
+        // Fetch any messages received while offline
+        Future.delayed(const Duration(seconds: 2), () => fetchUndeliveredMessages());
       }
     } on TimeoutException {
       debugPrint('[ChatService] Login timeout after 15s');
@@ -352,10 +355,22 @@ class ChatService extends ChangeNotifier {
         debugPrint('[WS] Received message from $contactId: ${message.text}');
         _saveMessages(); // Persist to disk
         notifyListeners();
+        
+        // Mark as delivered on the backend
+        _markMessageDelivered(data['id'] ?? '');
       }
-    } else if (type == 'message_delivered' || type == 'message_read') {
-      debugPrint('[WS] $type: ${data?['messageId']}');
-      notifyListeners();
+    } else if (type == 'message_delivered' && data != null) {
+      final msgId = data['messageId'] as String? ?? '';
+      if (msgId.isNotEmpty) {
+        _updateLocalMessageStatus(msgId, 'delivered');
+        debugPrint('[WS] message_delivered: $msgId');
+      }
+    } else if (type == 'message_read' && data != null) {
+      final msgId = data['messageId'] as String? ?? '';
+      if (msgId.isNotEmpty) {
+        _updateLocalMessageStatus(msgId, 'read');
+        debugPrint('[WS] message_read: $msgId');
+      }
     } else if (type == 'user_online' && data != null) {
       final uid = data['userId'] as String? ?? '';
       if (uid.isNotEmpty) {
@@ -384,6 +399,111 @@ class ChatService extends ChangeNotifier {
       _typingTimers[from]?.cancel();
       _typingTimers.remove(from);
       notifyListeners();
+    }
+  }
+
+  /// Mark a received message as delivered on the backend
+  Future<void> _markMessageDelivered(String messageId) async {
+    if (messageId.isEmpty) return;
+    try {
+      final headers = await _authHeaders();
+      await http.put(
+        Uri.parse('${AppConfig.apiBase}/messages/$messageId/delivered'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 5));
+      debugPrint('[ChatService] Marked message $messageId as delivered');
+    } catch (e) {
+      debugPrint('[ChatService] Failed to mark delivered: $e');
+    }
+  }
+
+  /// Mark messages as read when user opens a chat
+  Future<void> markMessagesAsRead(String contactId) async {
+    final msgs = _messages[contactId] ?? [];
+    final headers = await _authHeaders();
+    for (final msg in msgs) {
+      if (msg.from != 'me' && msg.status != 'read') {
+        try {
+          await http.put(
+            Uri.parse('${AppConfig.apiBase}/messages/${msg.id}/read'),
+            headers: headers,
+          ).timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('[ChatService] Failed to mark read: $e');
+        }
+      }
+    }
+  }
+
+  /// Update a local message's status (sent → delivered → read)
+  void _updateLocalMessageStatus(String messageId, String newStatus) {
+    for (final contactId in _messages.keys) {
+      final msgs = _messages[contactId]!;
+      for (int i = 0; i < msgs.length; i++) {
+        if (msgs[i].id == messageId) {
+          msgs[i] = msgs[i].copyWith(status: newStatus);
+          _saveMessages();
+          notifyListeners();
+          return;
+        }
+      }
+    }
+  }
+
+  /// Fetch undelivered messages from backend (for messages received while offline)
+  Future<void> fetchUndeliveredMessages() async {
+    if (_currentUserId == null) return;
+    try {
+      final headers = await _authHeaders();
+      final response = await http.get(
+        Uri.parse('${AppConfig.apiBase}/messages/undelivered/$_currentUserId'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> messages = jsonDecode(response.body);
+        debugPrint('[ChatService] Fetched ${messages.length} undelivered messages');
+        
+        for (final msgData in messages) {
+          final fromId = msgData['fromId'] ?? '';
+          final fromPhone = msgData['fromPhone'] ?? '';
+          
+          // Find matching contact for conversation key
+          String contactId = fromId;
+          if (fromPhone.toString().isNotEmpty) {
+            for (final c in _contacts) {
+              final cDigits = c.phone.replaceAll(RegExp(r'[^\d]'), '');
+              final fpDigits = fromPhone.toString().replaceAll(RegExp(r'[^\d]'), '');
+              if (cDigits.length >= 10 && fpDigits.length >= 10 &&
+                  cDigits.substring(cDigits.length - 10) == fpDigits.substring(fpDigits.length - 10)) {
+                contactId = c.phone;
+                break;
+              }
+            }
+          }
+          
+          final message = Message(
+            id: msgData['id'] ?? '',
+            from: fromId,
+            text: msgData['content'] ?? '',
+            timestamp: DateTime.tryParse(msgData['timestamp']?.toString() ?? '')
+                    ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          );
+          
+          _messages.putIfAbsent(contactId, () => []);
+          if (!_messages[contactId]!.any((m) => m.id == message.id)) {
+            _messages[contactId]!.add(message);
+            _markMessageDelivered(msgData['id'] ?? '');
+          }
+        }
+        
+        if (messages.isNotEmpty) {
+          await _saveMessages();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('[ChatService] Failed to fetch undelivered: $e');
     }
   }
 

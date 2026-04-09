@@ -33,7 +33,12 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     // Load messages initially and listen for changes
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshMessages());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshMessages();
+      // Mark incoming messages as read when chat is opened
+      final svc = context.read<ChatService>();
+      svc.markMessagesAsRead(_contactId);
+    });
     context.read<ChatService>().addListener(_refreshMessages);
   }
 
