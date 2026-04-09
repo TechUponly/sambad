@@ -232,18 +232,30 @@ class _LoginScreenState extends State<LoginScreen> {
     if (user != null) {
       final token = await user.getIdToken();
       final prefs = await SharedPreferences.getInstance();
+      
+      // Clear stale session data from previous logins FIRST
+      await prefs.remove('current_user_id');
+      await prefs.remove('current_user_name');
+      await prefs.remove('profile_name');
+      await prefs.remove('profile_age');
+      await prefs.remove('profile_gender');
+      await prefs.remove('profile_pic');
+      
+      // Now save fresh session data
       await prefs.setString('firebase_token', token ?? '');
       await prefs.setString('current_user_phone', user.phoneNumber ?? '');
       
-      // Extract name: use Firebase displayName, or saved name, or phone number
+      // Extract name: use Firebase displayName, or phone number
       String? displayName = user.displayName;
-      if (displayName == null || displayName.isEmpty) {
-        displayName = prefs.getString('current_user_name');
-      }
       if (displayName == null || displayName.isEmpty) {
         // Use a clean phone number as fallback name
         displayName = user.phoneNumber?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
         if (displayName.length > 10) displayName = displayName.substring(displayName.length - 10);
+      }
+      
+      // Reset ChatService state from previous session
+      if (mounted) {
+        await context.read<ChatService>().reset();
       }
       
       // Login to backend with name
@@ -254,11 +266,14 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
-    // Request contacts permission and sync
-    await _requestContactsAndSync();
+    
+    // Navigate to HomePage IMMEDIATELY (don't wait for contacts sync)
     if (mounted) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
     }
+    
+    // Sync contacts in the background AFTER navigation
+    _requestContactsAndSync();
   }
 
   Future<void> _requestContactsAndSync() async {

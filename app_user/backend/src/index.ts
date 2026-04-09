@@ -239,11 +239,43 @@ AppDataSource.initialize()
     app.post('/api/users/login', async (req, res) => {
       try {
         const userRepo = AppDataSource.getRepository('User');
-        const { phone, name } = req.body;
+        let { phone, name } = req.body;
+        
+        // Normalize phone: ensure it has country code prefix
+        if (phone && !phone.startsWith('+')) {
+          const digits = phone.replace(/[^\d]/g, '');
+          // If 10 digits, assume India (+91)
+          if (digits.length === 10) {
+            phone = '+91' + digits;
+          } else if (digits.length > 10) {
+            phone = '+' + digits;
+          }
+        }
+        
         let user = await userRepo.findOne({ where: { phone } });
         if (!user) {
-          user = userRepo.create({ phone, name: name || null, status: 'active' });
-          user = await userRepo.save(user);
+          // Also try to find without country code (backwards compatibility)
+          const digits = phone.replace(/[^\d]/g, '');
+          if (digits.length > 10) {
+            const shortPhone = digits.substring(digits.length - 10);
+            const existing = await userRepo
+              .createQueryBuilder('user')
+              .where("REPLACE(REPLACE(user.phone, '+', ''), '-', '') LIKE :pattern", { 
+                pattern: `%${shortPhone}` 
+              })
+              .getOne();
+            if (existing) {
+              user = existing;
+              // Update to normalized phone
+              user.phone = phone;
+              user = await userRepo.save(user);
+            }
+          }
+          
+          if (!user) {
+            user = userRepo.create({ phone, name: name || null, status: 'active' });
+            user = await userRepo.save(user);
+          }
         } else if (name && !user.name) {
           // Update name if user exists but has no name set
           user.name = name;
@@ -253,6 +285,47 @@ AppDataSource.initialize()
       } catch (error) {
         console.error('Error in login:', error);
         res.status(500).json({ error: 'Login failed' });
+      }
+    });
+
+    // Delete user account and all associated data (self-delete only)
+    app.delete('/api/users/:id', async (req, res) => {
+      try {
+        const userRepo = AppDataSource.getRepository('User');
+        const contactRepo = AppDataSource.getRepository('Contact');
+        const messageRepo = AppDataSource.getRepository('Message');
+        
+        // Ownership check: users can only delete their own account
+        const authUserId = (req as any).userId;
+        if (authUserId && authUserId !== req.params.id) {
+          return res.status(403).json({ error: 'You can only delete your own account' });
+        }
+        
+        const user = await userRepo.findOne({ where: { id: req.params.id } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        // Delete user's contacts
+        await contactRepo
+          .createQueryBuilder()
+          .delete()
+          .where('userId = :id', { id: req.params.id })
+          .execute();
+        
+        // Delete user's messages
+        await messageRepo
+          .createQueryBuilder()
+          .delete()
+          .where('fromId = :id OR toId = :id', { id: req.params.id })
+          .execute();
+        
+        // Delete the user
+        await userRepo.remove(user);
+        
+        console.log(`User ${req.params.id} deleted with all associated data`);
+        res.json({ success: true, message: 'Account deleted successfully' });
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Failed to delete account' });
       }
     });
 

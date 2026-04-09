@@ -22,7 +22,7 @@ class ContactsSyncService {
       }).toList();
       
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('jwt');
+      final token = prefs.getString('firebase_token');
       
       final response = await http.post(
         Uri.parse('$_baseUrl/api/sync-contacts'), 

@@ -168,9 +168,26 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
     );
     if (confirm != true) return;
     if (!mounted) return;
+    
+    // Delete from backend first
+    if (_userId != null && _userId!.isNotEmpty) {
+      try {
+        final headers = await _authHeaders();
+        await http.delete(
+          Uri.parse('${AppConfig.apiBase}/users/$_userId'),
+          headers: headers,
+        );
+        debugPrint('[Profile] Account deleted from server');
+      } catch (e) {
+        debugPrint('[Profile] Error deleting from server: $e');
+      }
+    }
+    
+    await context.read<ChatService>().reset();
     await context.read<ChatService>().purgePrivateMessages();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -193,6 +210,7 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
     );
     if (confirm != true) return;
     if (!mounted) return;
+    await context.read<ChatService>().reset();
     await context.read<ChatService>().purgePrivateMessages();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

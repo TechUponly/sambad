@@ -17,6 +17,42 @@ import 'api_service.dart';
 
 class ChatService extends ChangeNotifier {
 
+  /// Normalize a phone number to a consistent format.
+  /// Strips all non-digit chars except leading +. Ensures country code prefix.
+  static String normalizePhone(String phone, {String defaultCode = '+91'}) {
+    String cleaned = phone.trim();
+    // If it starts with +, keep digits after +
+    if (cleaned.startsWith('+')) {
+      final digits = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+      return '+$digits';
+    }
+    // Strip everything non-digit
+    cleaned = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.isEmpty) return '';
+    // If 10 digits, add default country code
+    if (cleaned.length == 10) {
+      final codeDigits = defaultCode.replaceAll(RegExp(r'[^\d]'), '');
+      return '+$codeDigits$cleaned';
+    }
+    // If longer than 10, assume it has country code
+    if (cleaned.length > 10) {
+      return '+$cleaned';
+    }
+    // Short number — return as-is with +
+    return '+$cleaned';
+  }
+
+  /// Check if two phone numbers are the same (last 10 digits match)
+  static bool phonesMatch(String a, String b) {
+    final aDigits = a.replaceAll(RegExp(r'[^\d]'), '');
+    final bDigits = b.replaceAll(RegExp(r'[^\d]'), '');
+    if (aDigits.length >= 10 && bDigits.length >= 10) {
+      return aDigits.substring(aDigits.length - 10) == bDigits.substring(bDigits.length - 10);
+    }
+    return aDigits == bDigits;
+  }
+
+
     Future<void> blockContact(String contactId) async {
       if (!_blockedContacts.contains(contactId)) {
         _blockedContacts.add(contactId);
@@ -433,7 +469,7 @@ class ChatService extends ChangeNotifier {
   void _resetInactivityTimer() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(
-      const Duration(minutes: 5),
+      const Duration(minutes: 30),
       () async {
         await clearAllMessages(reason: 'inactivity');
       },
@@ -812,26 +848,45 @@ class ChatService extends ChangeNotifier {
 
   // Add contact locally (for bulk import from phone)
   Future<void> addContactLocally({required String id, required String name, required String phone}) async {
-    final contact = Contact(id: id, name: name, phone: phone);
-    if (!_contacts.any((c) => c.phone == phone)) {
+    final normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone.isEmpty) return;
+    // Check for duplicates using normalized phone matching
+    final isDuplicate = _contacts.any((c) => phonesMatch(c.phone, normalizedPhone));
+    if (!isDuplicate) {
+      final contact = Contact(id: id, name: name, phone: normalizedPhone);
       _contacts.add(contact);
       await _saveContacts();
       notifyListeners();
-      debugPrint('[ChatService] Adding contact: $contact');
+      debugPrint('[ChatService] Adding contact: ${contact.name} (${contact.phone})');
     }
   }
 
   Future<void> addContact(Contact contact) async {
-    debugPrint('[ChatService] Adding contact: ${contact.toJson()}');
+    // Normalize phone before storing
+    final normalizedPhone = normalizePhone(contact.phone);
+    final normalizedContact = Contact(
+      id: contact.id,
+      name: contact.name,
+      phone: normalizedPhone.isNotEmpty ? normalizedPhone : contact.phone,
+    );
+    
+    debugPrint('[ChatService] Adding contact: ${normalizedContact.toJson()}');
+    
+    // Check for duplicates
+    final isDuplicate = _contacts.any((c) => phonesMatch(c.phone, normalizedContact.phone));
+    if (isDuplicate) {
+      debugPrint('[ChatService] Duplicate contact, skipping: ${normalizedContact.phone}');
+      return;
+    }
     
     // 1. Update UI INSTANTLY
-    _contacts.add(contact);
+    _contacts.add(normalizedContact);
     await _saveContacts();
     notifyListeners();
     debugPrint('[ChatService] Contact added locally — UI updated instantly');
     
     // 2. Sync to backend in background (don't block UI)
-    _syncContactToBackend(contact);
+    _syncContactToBackend(normalizedContact);
   }
 
   /// Background sync — runs after UI is already updated
@@ -964,5 +1019,32 @@ class ChatService extends ChangeNotifier {
       await _saveBlockedGroups();
       notifyListeners();
     }
+  }
+
+  /// Reset all in-memory state — call on logout or account deletion.
+  /// This ensures the next login starts fresh without stale data.
+  Future<void> reset() async {
+    debugPrint('[ChatService] Resetting all in-memory state');
+    _contacts.clear();
+    _messages.clear();
+    _groups.clear();
+    _groupMembers.clear();
+    _blockedContacts.clear();
+    _blockedGroups.clear();
+    _onlineUsers.clear();
+    _typingUsers.clear();
+    for (final timer in _typingTimers.values) {
+      timer.cancel();
+    }
+    _typingTimers.clear();
+    _currentUserId = null;
+    _currentUserPhone = null;
+    _lastPrivateActivity = null;
+    _adminSettings = null;
+    _appConfig = {};
+    disconnectWebSocket();
+    _inactivityTimer?.cancel();
+    notifyListeners();
+    debugPrint('[ChatService] State reset complete');
   }
 }

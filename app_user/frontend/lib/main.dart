@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 // ...existing code...
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
@@ -73,15 +74,31 @@ Future<void> main() async {
   }
   
   final prefs = await SharedPreferences.getInstance();
-  final isLoggedIn = prefs.containsKey('firebase_token') && 
-                     prefs.containsKey('current_user_phone');
+  // Check BOTH prefs AND Firebase auth state for reliable login detection
+  final hasPrefs = prefs.containsKey('firebase_token') && 
+                   prefs.containsKey('current_user_phone');
+  final firebaseUser = FirebaseAuth.instance.currentUser;
+  final isLoggedIn = hasPrefs && firebaseUser != null;
+  
+  // If prefs say logged in but Firebase says no, clean up stale prefs
+  if (hasPrefs && firebaseUser == null) {
+    debugPrint('[Main] Stale session detected — clearing prefs');
+    await prefs.clear();
+  }
   
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) {
           final svc = ChatService();
-          svc.init();
+          if (isLoggedIn) {
+            svc.init();
+            // Re-connect WebSocket for returning users
+            svc.loginUser(
+              firebaseUser!.phoneNumber ?? prefs.getString('current_user_phone') ?? '',
+              name: prefs.getString('current_user_name'),
+            );
+          }
           return svc;
         }),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
