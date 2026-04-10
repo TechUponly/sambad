@@ -544,6 +544,7 @@ class ChatService extends ChangeNotifier {
   Map<String, List<String>> _groupMembers = {};
   List<String> _blockedGroups = [];
   Map<String, String> _groupServerIds = {}; // name → backend UUID
+  Map<String, Map<String, String>> _groupRoles = {}; // groupName → {userId: role}
 
   // Online & Typing indicators
   final Set<String> _onlineUsers = {};
@@ -641,6 +642,7 @@ class ChatService extends ChangeNotifier {
   Map<String, List<String>> get groupMembers => _groupMembers;
   List<String> get blockedGroups => _blockedGroups;
   String? get currentUserId => _currentUserId;
+  Map<String, Map<String, String>> get groupRoles => _groupRoles;
 
   /// Public auth headers for external use (e.g. GroupInfoPage)
   Future<Map<String, String>> authHeaders() => _authHeaders();
@@ -650,8 +652,10 @@ class ChatService extends ChangeNotifier {
     _groups.remove(name);
     _groupMembers.remove(name);
     _groupServerIds.remove(name);
+    _groupRoles.remove(name);
     _saveGroups();
     _saveGroupServerIds();
+    _saveGroupRoles();
     notifyListeners();
   }
 
@@ -670,6 +674,64 @@ class ChatService extends ChangeNotifier {
     if (raw != null) {
       _groupServerIds = Map<String, String>.from(jsonDecode(raw));
     }
+  }
+
+  // ── Local Group Roles Management ──
+  Future<void> _saveGroupRoles() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('group_roles_v1', jsonEncode(_groupRoles));
+  }
+
+  Future<void> _loadGroupRoles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('group_roles_v1');
+    if (raw != null) {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      _groupRoles = decoded.map((k, v) => MapEntry(k,
+          Map<String, String>.from(v as Map)));
+    }
+  }
+
+  String roleInGroup(String groupName, String userId) {
+    return _groupRoles[groupName]?[userId] ?? 'member';
+  }
+
+  bool isGroupAdmin(String groupName) {
+    if (_currentUserId == null) return false;
+    return roleInGroup(groupName, _currentUserId!) == 'admin';
+  }
+
+  Map<String, String> rolesForGroup(String groupName) {
+    return _groupRoles[groupName] ?? {};
+  }
+
+  Future<void> setMemberRole(String groupName, String userId, String role) async {
+    _groupRoles[groupName] ??= {};
+    _groupRoles[groupName]![userId] = role;
+    await _saveGroupRoles();
+    notifyListeners();
+  }
+
+  Future<void> addMemberToGroup(String groupName, String userId, {String role = 'member'}) async {
+    // Add to members list
+    _groupMembers[groupName] ??= [];
+    if (!_groupMembers[groupName]!.contains(userId)) {
+      _groupMembers[groupName]!.add(userId);
+    }
+    // Set role
+    _groupRoles[groupName] ??= {};
+    _groupRoles[groupName]![userId] = role;
+    await _saveGroupMembers();
+    await _saveGroupRoles();
+    notifyListeners();
+  }
+
+  Future<void> removeMemberFromGroup(String groupName, String userId) async {
+    _groupMembers[groupName]?.remove(userId);
+    _groupRoles[groupName]?.remove(userId);
+    await _saveGroupMembers();
+    await _saveGroupRoles();
+    notifyListeners();
   }
 
   List<String> membersForGroup(String name) => _groupMembers[name] ?? const [];
@@ -796,6 +858,7 @@ class ChatService extends ChangeNotifier {
       _blockedGroups = [];
     }
     await _loadGroupServerIds();
+    await _loadGroupRoles();
     if (sessionJson != null) {
       try {
         _lastPrivateActivity = int.parse(sessionJson);
@@ -1185,10 +1248,27 @@ class ChatService extends ChangeNotifier {
     
     // Save locally first for instant UI feedback
     _groups.add(trimmed);
-    if (memberIds.isNotEmpty) {
-      _groupMembers[trimmed] = List<String>.from(memberIds);
-      await _saveGroupMembers();
+    
+    // Set up roles: creator is admin
+    _groupRoles[trimmed] = {};
+    if (_currentUserId != null) {
+      _groupRoles[trimmed]![_currentUserId!] = 'admin';
+      // Add creator to members list
+      _groupMembers[trimmed] = [_currentUserId!];
+    } else {
+      _groupMembers[trimmed] = [];
     }
+    
+    // Add selected members with 'member' role
+    for (final mid in memberIds) {
+      if (mid != _currentUserId && !_groupMembers[trimmed]!.contains(mid)) {
+        _groupMembers[trimmed]!.add(mid);
+        _groupRoles[trimmed]![mid] = 'member';
+      }
+    }
+    
+    await _saveGroupMembers();
+    await _saveGroupRoles();
     await _saveGroups();
     notifyListeners();
     

@@ -40,17 +40,26 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
     final resolvedId = resolvedGroupId ?? svc.serverIdForGroup(widget.groupName);
 
     if (resolvedId == null) {
-      // No server ID — show local data as fallback
+      // No server ID — use local data with proper roles
       final localMembers = svc.membersForGroup(widget.groupName);
+      final roles = svc.rolesForGroup(widget.groupName);
+      final contacts = svc.contacts;
+      
       setState(() {
         _groupDetails = {
           'name': widget.groupName,
           'description': '',
-          'members': localMembers.map((phone) => {
-            'userId': phone, 'name': phone, 'phone': phone, 'role': 'member'
+          'members': localMembers.map((uid) {
+            // Try to find contact name
+            final contact = contacts.where((c) => c.id == uid).toList();
+            final name = contact.isNotEmpty ? contact.first.name : uid;
+            final phone = contact.isNotEmpty ? contact.first.phone : '';
+            final role = roles[uid] ?? 'member';
+            return {'userId': uid, 'name': name, 'phone': phone, 'role': role};
           }).toList(),
         };
-        _myRole = 'admin'; // Assume admin for local-only groups
+        // Set my role from local roles
+        _myRole = svc.isGroupAdmin(widget.groupName) ? 'admin' : 'member';
         _loading = false;
       });
       return;
@@ -215,20 +224,26 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (selected != null && resolvedGroupId != null) {
-      try {
-        final headers = await svc.authHeaders();
-        headers['Content-Type'] = 'application/json';
-        await http.post(
-          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/members'),
-          headers: headers,
-          body: jsonEncode({'userId': selected, 'addedBy': svc.currentUserId}),
-        );
-        _fetchGroupDetails();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Member added'), backgroundColor: AppColors.primaryBlue));
-      } catch (e) {
-        debugPrint('[GroupInfo] Add member error: $e');
+    if (selected != null) {
+      // Save locally first (works offline)
+      await svc.addMemberToGroup(widget.groupName, selected);
+      
+      // Try backend sync
+      if (resolvedGroupId != null) {
+        try {
+          final headers = await svc.authHeaders();
+          headers['Content-Type'] = 'application/json';
+          await http.post(
+            Uri.parse('${AppConfig.apiBase}/groups/$resolvedGroupId/members'),
+            headers: headers,
+            body: jsonEncode({'userId': selected, 'addedBy': svc.currentUserId}),
+          ).timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('[GroupInfo] Backend sync failed (local saved): $e');
+        }
       }
+      _fetchGroupDetails();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Member added'), backgroundColor: AppColors.primaryBlue));
     }
   }
 
@@ -250,38 +265,51 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (confirm == true && resolvedGroupId != null) {
-      try {
-        final svc = Provider.of<ChatService>(context, listen: false);
-        final headers = await svc.authHeaders();
-        await http.delete(
-          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/members/$userId?removedBy=${svc.currentUserId}'),
-          headers: headers,
-        );
-        _fetchGroupDetails();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name removed'), backgroundColor: Colors.red));
-      } catch (e) {
-        debugPrint('[GroupInfo] Remove error: $e');
+    if (confirm == true) {
+      final svc = Provider.of<ChatService>(context, listen: false);
+      // Save locally first
+      await svc.removeMemberFromGroup(widget.groupName, userId);
+      
+      // Try backend sync
+      if (resolvedGroupId != null) {
+        try {
+          final headers = await svc.authHeaders();
+          await http.delete(
+            Uri.parse('${AppConfig.apiBase}/groups/$resolvedGroupId/members/$userId?removedBy=${svc.currentUserId}'),
+            headers: headers,
+          ).timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('[GroupInfo] Backend remove sync failed: $e');
+        }
       }
+      _fetchGroupDetails();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name removed'), backgroundColor: Colors.red));
     }
   }
 
   Future<void> _toggleRole(String userId, String currentRole, String name) async {
     final newRole = currentRole == 'admin' ? 'member' : 'admin';
-    try {
-      final svc = Provider.of<ChatService>(context, listen: false);
-      final headers = await svc.authHeaders();
-      headers['Content-Type'] = 'application/json';
-      await http.put(
-        Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/members/$userId/role'),
-        headers: headers,
-        body: jsonEncode({'role': newRole, 'changedBy': svc.currentUserId}),
-      );
-      _fetchGroupDetails();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name is now ${newRole == 'admin' ? 'an admin' : 'a member'}'), backgroundColor: AppColors.primaryBlue));
-    } catch (e) {
-      debugPrint('[GroupInfo] Role change error: $e');
+    final svc = Provider.of<ChatService>(context, listen: false);
+    
+    // Save locally first
+    await svc.setMemberRole(widget.groupName, userId, newRole);
+    
+    // Try backend sync
+    if (resolvedGroupId != null) {
+      try {
+        final headers = await svc.authHeaders();
+        headers['Content-Type'] = 'application/json';
+        await http.put(
+          Uri.parse('${AppConfig.apiBase}/groups/$resolvedGroupId/members/$userId/role'),
+          headers: headers,
+          body: jsonEncode({'role': newRole, 'changedBy': svc.currentUserId}),
+        ).timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('[GroupInfo] Backend role sync failed: $e');
+      }
     }
+    _fetchGroupDetails();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name is now ${newRole == 'admin' ? 'an admin' : 'a member'}'), backgroundColor: AppColors.primaryBlue));
   }
 
   Future<void> _exitGroup() async {
