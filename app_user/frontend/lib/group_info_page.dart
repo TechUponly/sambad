@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:convert';
 import 'services/chat_service.dart';
+import 'models/contact.dart';
 import 'theme/app_colors.dart';
 import 'utils/responsive.dart';
 import 'config/app_config.dart';
@@ -44,12 +47,20 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       final localMembers = svc.membersForGroup(widget.groupName);
       final roles = svc.rolesForGroup(widget.groupName);
       final contacts = svc.contacts;
+      final prefs = await SharedPreferences.getInstance();
+      final myName = prefs.getString('current_user_name') ?? prefs.getString('profile_name') ?? 'You';
+      final myPhone = prefs.getString('current_user_phone') ?? '';
       
       setState(() {
         _groupDetails = {
           'name': widget.groupName,
           'description': '',
           'members': localMembers.map((uid) {
+            // Check if it's me
+            if (uid == svc.currentUserId) {
+              final role = roles[uid] ?? 'admin';
+              return {'userId': uid, 'name': myName, 'phone': myPhone, 'role': role};
+            }
             // Try to find contact name
             final contact = contacts.where((c) => c.id == uid).toList();
             final name = contact.isNotEmpty ? contact.first.name : uid;
@@ -181,67 +192,46 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
     final svc = Provider.of<ChatService>(context, listen: false);
     final contacts = svc.contacts;
     final currentMembers = (_groupDetails?['members'] as List? ?? []).map((m) => m['userId'] as String).toSet();
-
     final availableContacts = contacts.where((c) => !currentMembers.contains(c.id)).toList();
 
-    if (availableContacts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All your contacts are already members')));
-      return;
-    }
-
-    final selected = await showDialog<String>(
+    final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: AppColors.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Add Member', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 300),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: availableContacts.length,
-                  itemBuilder: (_, i) {
-                    final c = availableContacts[i];
-                    return ListTile(
-                      leading: CircleAvatar(backgroundColor: AppColors.avatarColor(c.name), child: Text(c.name[0].toUpperCase(), style: const TextStyle(color: Colors.white))),
-                      title: Text(c.name, style: const TextStyle(color: Colors.white)),
-                      subtitle: Text(c.phone, style: const TextStyle(color: Colors.white60, fontSize: 13)),
-                      onTap: () => Navigator.pop(ctx, c.id),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (ctx) => _AddMemberDialog(
+        availableContacts: availableContacts,
+        groupName: widget.groupName,
       ),
     );
 
-    if (selected != null) {
-      // Save locally first (works offline)
-      await svc.addMemberToGroup(widget.groupName, selected);
-      
-      // Try backend sync
-      if (resolvedGroupId != null) {
-        try {
-          final headers = await svc.authHeaders();
-          headers['Content-Type'] = 'application/json';
-          await http.post(
-            Uri.parse('${AppConfig.apiBase}/groups/$resolvedGroupId/members'),
-            headers: headers,
-            body: jsonEncode({'userId': selected, 'addedBy': svc.currentUserId}),
-          ).timeout(const Duration(seconds: 5));
-        } catch (e) {
-          debugPrint('[GroupInfo] Backend sync failed (local saved): $e');
+    if (result != null) {
+      final selectedId = result['id'];
+      final manualName = result['name'];
+      final manualPhone = result['phone'];
+
+      if (selectedId != null) {
+        // Existing contact selected
+        await svc.addMemberToGroup(widget.groupName, selectedId);
+        
+        // Try backend sync
+        if (resolvedGroupId != null) {
+          try {
+            final headers = await svc.authHeaders();
+            headers['Content-Type'] = 'application/json';
+            await http.post(
+              Uri.parse('${AppConfig.apiBase}/groups/$resolvedGroupId/members'),
+              headers: headers,
+              body: jsonEncode({'userId': selectedId, 'addedBy': svc.currentUserId}),
+            ).timeout(const Duration(seconds: 5));
+          } catch (e) {
+            debugPrint('[GroupInfo] Backend sync failed: $e');
+          }
         }
+      } else if (manualName != null && manualPhone != null) {
+        // Manual entry — add as local contact + group member
+        final newId = DateTime.now().millisecondsSinceEpoch.toString();
+        await svc.addContact(Contact(id: newId, name: manualName, phone: manualPhone));
+        await svc.addMemberToGroup(widget.groupName, newId);
       }
+      
       _fetchGroupDetails();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Member added'), backgroundColor: AppColors.primaryBlue));
     }
@@ -548,6 +538,194 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+// ── Add Member Dialog (search + manual + invite) ──
+
+class _AddMemberDialog extends StatefulWidget {
+  final List<dynamic> availableContacts;
+  final String groupName;
+
+  const _AddMemberDialog({required this.availableContacts, required this.groupName});
+
+  @override
+  State<_AddMemberDialog> createState() => _AddMemberDialogState();
+}
+
+class _AddMemberDialogState extends State<_AddMemberDialog> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+  bool _showManualEntry = false;
+  String _searchQuery = '';
+
+  static const String _playStoreLink = 'https://play.google.com/store/apps/details?id=com.shamrai.sambad';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _searchQuery.isEmpty
+        ? widget.availableContacts
+        : widget.availableContacts.where((c) {
+            final name = (c.name as String).toLowerCase();
+            final phone = (c.phone as String).toLowerCase();
+            final q = _searchQuery.toLowerCase();
+            return name.contains(q) || phone.contains(q);
+          }).toList();
+
+    return Dialog(
+      backgroundColor: AppColors.bgCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Add Member', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+
+            // Search bar
+            TextField(
+              controller: _searchCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Search contacts...',
+                hintStyle: const TextStyle(color: Colors.white38),
+                prefixIcon: const Icon(Icons.search, color: Colors.white38),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.08),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            ),
+            const SizedBox(height: 12),
+
+            // Contacts list
+            if (!_showManualEntry) ...[
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 250),
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            widget.availableContacts.isEmpty ? 'No contacts available' : 'No matches found',
+                            style: const TextStyle(color: Colors.white54),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (_, i) {
+                          final c = filtered[i];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.avatarColor(c.name),
+                              child: Text(c.name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                            title: Text(c.name, style: const TextStyle(color: Colors.white)),
+                            subtitle: Text(c.phone, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                            onTap: () => Navigator.pop(context, {'id': c.id}),
+                          );
+                        },
+                      ),
+              ),
+              const Divider(color: Colors.white12, height: 24),
+              
+              // Manual entry toggle
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.primaryBlue,
+                  child: Icon(Icons.person_add, color: Colors.white, size: 20),
+                ),
+                title: const Text('Add manually', style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Type name & phone number', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                onTap: () => setState(() => _showManualEntry = true),
+              ),
+
+              // WhatsApp invite
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.green.shade600,
+                  child: const Icon(Icons.chat, color: Colors.white, size: 20),
+                ),
+                title: const Text('Invite via WhatsApp', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Share app link to invite friend', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Share.share(
+                    'Hey! Join me on Private Samvad for secure messaging 🔒\n\nDownload now: $_playStoreLink',
+                  );
+                },
+              ),
+            ],
+
+            // Manual entry form
+            if (_showManualEntry) ...[
+              TextField(
+                controller: _nameCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: const TextStyle(color: Colors.white60),
+                  prefixIcon: const Icon(Icons.person, color: AppColors.primaryBlue),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _phoneCtrl,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: 'Phone (with country code)',
+                  labelStyle: const TextStyle(color: Colors.white60),
+                  hintText: '+91...',
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  prefixIcon: const Icon(Icons.phone, color: AppColors.primaryBlue),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _showManualEntry = false),
+                    child: const Text('Back', style: TextStyle(color: Colors.white70)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      final name = _nameCtrl.text.trim();
+                      final phone = _phoneCtrl.text.trim();
+                      if (name.isEmpty || phone.isEmpty) return;
+                      Navigator.pop(context, {'name': name, 'phone': phone});
+                    },
+                    child: const Text('Add'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

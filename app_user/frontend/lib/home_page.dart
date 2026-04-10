@@ -307,7 +307,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               margin: EdgeInsets.only(bottom: Responsive.vertical(context, 8)),
               decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
               child: ListTile(
-                leading: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
+                leading: GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group))),
+                  child: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
+                ),
                 title: Text(group, style: TextStyle(color: isBlocked ? Colors.white38 : Colors.white, fontWeight: FontWeight.w600)),
                 subtitle: isBlocked
                     ? Row(children: [
