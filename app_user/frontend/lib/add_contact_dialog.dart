@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'models/contact.dart';
 import 'utils/phone_validator.dart';
+import 'utils/country_code_picker.dart';
+import 'utils/country_codes.dart';
 import 'theme/app_colors.dart';
 import 'utils/responsive.dart';
 
@@ -21,37 +23,23 @@ class _AddContactDialogState extends State<AddContactDialog> {
   String _countryCode = '+91';
 
   Future<void> _add() async {
-    // Validate name
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a contact name'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
+        const SnackBar(content: Text('Please enter a contact name'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
       );
       return;
     }
 
-    // Validate phone with selected country code
     final phoneValidation = PhoneValidator.validate(_phoneCtrl.text, _countryCode);
     if (phoneValidation != null) {
       setState(() => _phoneError = phoneValidation);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(phoneValidation),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(phoneValidation), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 3)),
       );
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _phoneError = null;
-    });
+    setState(() { _loading = true; _phoneError = null; });
     
     final cleanedPhone = PhoneValidator.cleanPhone(_phoneCtrl.text);
     final fullPhone = '$_countryCode$cleanedPhone';
@@ -70,9 +58,10 @@ class _AddContactDialogState extends State<AddContactDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Stack(children: [
     Dialog(
-      backgroundColor: AppColors.bgCard,
+      backgroundColor: c.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24))),
       child: Container(
         padding: Responsive.paddingAll(context, 28),
@@ -80,18 +69,18 @@ class _AddContactDialogState extends State<AddContactDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Add Contact', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 26), fontWeight: FontWeight.bold)),
+            Text('Add Contact', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 26), fontWeight: FontWeight.bold)),
             SizedBox(height: Responsive.vertical(context, 28)),
             TextField(
               controller: _nameCtrl,
               enabled: !_loading,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: c.text),
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 hintText: 'Name',
-                hintStyle: const TextStyle(color: Colors.white54),
+                hintStyle: TextStyle(color: c.textMuted),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
+                fillColor: c.text.withValues(alpha: 0.08),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)), borderSide: BorderSide.none),
               ),
             ),
@@ -100,31 +89,20 @@ class _AddContactDialogState extends State<AddContactDialog> {
               children: [
                 GestureDetector(
                   onTap: _loading ? null : () async {
-                    final codes = ['+91', '+1', '+44', '+61', '+86', '+81', '+49', '+33', '+971', '+92', '+880', '+65'];
-                    final selected = await showDialog<String>(
-                      context: context,
-                      builder: (ctx) => SimpleDialog(
-                        backgroundColor: AppColors.bgCard,
-                        title: Text('Country Code', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 16))),
-                        children: codes.map((c) => SimpleDialogOption(
-                          onPressed: () => Navigator.pop(ctx, c),
-                          child: Text(c, style: const TextStyle(color: Colors.white)),
-                        )).toList(),
-                      ),
-                    );
-                    if (selected != null) setState(() => _countryCode = selected);
+                    final selected = await showCountryCodePicker(context);
+                    if (selected != null) setState(() => _countryCode = selected.code);
                   },
                   child: Container(
                     padding: Responsive.paddingSymmetric(context, h: 12, v: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: c.text.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(Responsive.radius(context, 16)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_countryCode, style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 14))),
-                        Icon(Icons.arrow_drop_down, color: Colors.white54, size: Responsive.size(context, 18)),
+                        Text('${CountryCodes.findByCode(_countryCode)?.flag ?? ''} $_countryCode', style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 14))),
+                        Icon(Icons.arrow_drop_down, color: c.textMuted, size: Responsive.size(context, 18)),
                       ],
                     ),
                   ),
@@ -135,7 +113,7 @@ class _AddContactDialogState extends State<AddContactDialog> {
                     controller: _phoneCtrl,
                     enabled: !_loading,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: c.text),
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(PhoneValidator.getExpectedDigits(_countryCode)),
@@ -145,9 +123,9 @@ class _AddContactDialogState extends State<AddContactDialog> {
                     },
                     decoration: InputDecoration(
                       hintText: 'Phone (${PhoneValidator.getExpectedDigits(_countryCode)} digits)',
-                      hintStyle: const TextStyle(color: Colors.white54),
+                      hintStyle: TextStyle(color: c.textMuted),
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      fillColor: c.text.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)), borderSide: BorderSide.none),
                       errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)), borderSide: const BorderSide(color: Colors.red)),
                       focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)), borderSide: const BorderSide(color: Colors.red, width: 2)),

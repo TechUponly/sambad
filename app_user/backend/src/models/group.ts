@@ -11,7 +11,7 @@ export class Group {
   @Column({ nullable: true, default: '' })
   description: string;
 
-  @Column({ name: 'created_by' })
+  @Column({ name: 'created_by', nullable: true })
   created_by: string;
 
   @CreateDateColumn()
