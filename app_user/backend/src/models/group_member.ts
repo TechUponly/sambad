@@ -5,13 +5,13 @@ export class GroupMember {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'group_id' })
+  @Column({ name: 'group_id', nullable: true })
   group_id: string;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', nullable: true })
   user_id: string;
 
-  @Column({ default: 'member' })
+  @Column({ default: 'member', nullable: true })
   role: string; // 'admin' | 'member'
 
   @CreateDateColumn()
