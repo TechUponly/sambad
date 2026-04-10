@@ -90,7 +90,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.bgDark,
+        backgroundColor: AppColors.of(context).bg,
         appBar: _buildAppBar(),
         body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
         bottomNavigationBar: _buildBottomNav(),
@@ -100,14 +100,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: AppColors.bgCard,
+      backgroundColor: AppColors.of(context).card,
       elevation: 0,
       leadingWidth: Responsive.size(context, 56),
       leading: IconButton(
         icon: CircleAvatar(
           radius: Responsive.size(context, 18),
           backgroundColor: AppColors.avatarColor(_profileName ?? 'U'),
-          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'U', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 14))),
+          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'U', style: TextStyle(color: AppColors.of(context).text, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 14))),
         ),
         onPressed: () async {
           await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage()));
@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         child: TextField(
           controller: _searchController,
           focusNode: _searchFocus,
-          style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 14)),
+          style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 14)),
           decoration: InputDecoration(
             hintText: 'Search contacts...',
             hintStyle: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 14)),
@@ -180,11 +180,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Private Samvad welcomes you!', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(_profileName != null && _profileName != 'User' ? 'Welcome back, $_profileName!' : 'Private Samvad welcomes you!', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
                         if (_currentPhone != null && _currentPhone!.isNotEmpty)
                           Padding(
                             padding: EdgeInsets.only(top: Responsive.vertical(context, 4)),
-                            child: Text(_currentPhone!, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),
+                            child: Text(_currentPhone!, style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: Responsive.fontSize(context, 13))),
                           ),
                       ],
                     ),
@@ -215,7 +215,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
             SizedBox(height: Responsive.vertical(context, 16)),
-            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: Responsive.paddingSymmetric(context, h: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; return Container(margin: EdgeInsets.symmetric(vertical: Responsive.vertical(context, 4)), decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: 0)); })),
+            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: Responsive.paddingSymmetric(context, h: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; return Container(margin: EdgeInsets.symmetric(vertical: Responsive.vertical(context, 4)), decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: 0)); })),
           ],
         );
       },
@@ -239,7 +239,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               children: [
                 Icon(icon, color: Colors.white, size: Responsive.size(context, 28)),
                 SizedBox(height: Responsive.vertical(context, 6)),
-                Text(label, style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(label, style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -258,9 +258,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             children: [
               Container(padding: Responsive.paddingAll(context, 24), decoration: BoxDecoration(color: AppColors.primaryBlue.withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(Icons.chat_bubble_outline, size: Responsive.size(context, 64), color: AppColors.primaryBlue)),
               SizedBox(height: Responsive.vertical(context, 24)),
-              Text('No chats yet', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
+              Text('No chats yet', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
               SizedBox(height: Responsive.vertical(context, 12)),
-              Text('Start a conversation by adding a contact', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 16)), textAlign: TextAlign.center),
+              Text('Start a conversation by adding a contact', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 16)), textAlign: TextAlign.center),
               SizedBox(height: Responsive.vertical(context, 32)),
               ElevatedButton.icon(
                 onPressed: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); },
@@ -282,9 +282,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.groups, size: Responsive.size(context, 64), color: Colors.white54),
           SizedBox(height: Responsive.vertical(context, 16)),
-          Text('No groups yet', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
+          Text('No groups yet', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
           SizedBox(height: Responsive.vertical(context, 12)),
-          Text('Create a group to chat with multiple people', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 16))),
+          Text('Create a group to chat with multiple people', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 16))),
           SizedBox(height: Responsive.vertical(context, 24)),
           ElevatedButton.icon(
             onPressed: () => _createGroup(context),
@@ -305,7 +305,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             opacity: isBlocked ? 0.5 : 1.0,
             child: Container(
               margin: EdgeInsets.only(bottom: Responsive.vertical(context, 8)),
-              decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+              decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
               child: ListTile(
                 leading: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
                 title: Text(group, style: TextStyle(color: isBlocked ? Colors.white38 : Colors.white, fontWeight: FontWeight.w600)),
@@ -315,7 +315,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         const SizedBox(width: 4),
                         Text('Blocked', style: TextStyle(color: Colors.redAccent, fontSize: Responsive.fontSize(context, 13))),
                       ])
-                    : Text(memberCount > 0 ? '$memberCount members' : 'Tap to open', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 14))),
+                    : Text(memberCount > 0 ? '$memberCount members' : 'Tap to open', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 14))),
                 onTap: isBlocked
                     ? () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group is blocked. Unblock to chat.'), backgroundColor: Colors.red.shade700))
                     : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))),
@@ -327,9 +327,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group)));
                     } else if (value == 'exit') {
                       final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-                        backgroundColor: AppColors.bgCard,
+                        backgroundColor: AppColors.of(context).card,
                         title: const Text('Exit Group', style: TextStyle(color: Colors.white)),
-                        content: Text('Leave "$group"?', style: const TextStyle(color: Colors.white70)),
+                        content: Text('Leave "$group"?', style: TextStyle(color: AppColors.of(context).textSecondary)),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange), child: const Text('Exit')),
@@ -347,9 +347,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group unblocked')));
                     } else if (value == 'delete') {
                       final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-                        backgroundColor: AppColors.bgCard,
+                        backgroundColor: AppColors.of(context).card,
                         title: const Text('Delete Group', style: TextStyle(color: Colors.white)),
-                        content: Text('Delete "$group" permanently?', style: const TextStyle(color: Colors.white70)),
+                        content: Text('Delete "$group" permanently?', style: TextStyle(color: AppColors.of(context).textSecondary)),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Delete')),
@@ -832,14 +832,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _settingsTile({required IconData icon, required String title, String? subtitle, VoidCallback? onTap, Widget? trailing}) {
     return Container(
       margin: EdgeInsets.only(bottom: Responsive.vertical(context, 4)),
-      decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+      decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
       child: ListTile(
         leading: Container(
           padding: Responsive.paddingAll(context, 8),
           decoration: BoxDecoration(color: AppColors.primaryBlue.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(Responsive.radius(context, 10))),
           child: Icon(icon, color: AppColors.primaryBlue, size: Responsive.size(context, 22)),
         ),
-        title: Text(title, style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 15), fontWeight: FontWeight.w500)),
+        title: Text(title, style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 15), fontWeight: FontWeight.w500)),
         subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 13))) : null,
         trailing: trailing ?? (onTap != null ? Icon(Icons.chevron_right, color: Colors.white38, size: Responsive.size(context, 22)) : null),
         onTap: onTap,
@@ -894,7 +894,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 padding: Responsive.paddingSymmetric(context, h: 6, v: 2),
                 decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(Responsive.radius(context, 10))),
                 constraints: BoxConstraints(minWidth: Responsive.size(context, 18)),
-                child: Text(badge.toString(), style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 10), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                child: Text(badge.toString(), style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 10), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
               ),
             ),
           ],

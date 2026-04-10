@@ -543,6 +543,7 @@ class ChatService extends ChangeNotifier {
   List<String> _groups = [];
   Map<String, List<String>> _groupMembers = {};
   List<String> _blockedGroups = [];
+  Map<String, String> _groupServerIds = {}; // name → backend UUID
 
   // Online & Typing indicators
   final Set<String> _onlineUsers = {};
@@ -648,8 +649,27 @@ class ChatService extends ChangeNotifier {
   void removeGroupLocally(String name) {
     _groups.remove(name);
     _groupMembers.remove(name);
+    _groupServerIds.remove(name);
     _saveGroups();
+    _saveGroupServerIds();
     notifyListeners();
+  }
+
+  Map<String, String> get groupServerIds => _groupServerIds;
+
+  String? serverIdForGroup(String name) => _groupServerIds[name];
+
+  Future<void> _saveGroupServerIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('group_server_ids', jsonEncode(_groupServerIds));
+  }
+
+  Future<void> _loadGroupServerIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('group_server_ids');
+    if (raw != null) {
+      _groupServerIds = Map<String, String>.from(jsonDecode(raw));
+    }
   }
 
   List<String> membersForGroup(String name) => _groupMembers[name] ?? const [];
@@ -775,6 +795,7 @@ class ChatService extends ChangeNotifier {
     } else {
       _blockedGroups = [];
     }
+    await _loadGroupServerIds();
     if (sessionJson != null) {
       try {
         _lastPrivateActivity = int.parse(sessionJson);
@@ -1185,7 +1206,13 @@ class ChatService extends ChangeNotifier {
       ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 201) {
-        debugPrint('[ChatService] Group "$trimmed" synced to backend');
+        final body = jsonDecode(response.body);
+        final serverId = body['id']?.toString();
+        if (serverId != null) {
+          _groupServerIds[trimmed] = serverId;
+          await _saveGroupServerIds();
+        }
+        debugPrint('[ChatService] Group "$trimmed" synced to backend (id=$serverId)');
       } else {
         debugPrint('[ChatService] Group sync failed: ${response.statusCode} ${response.body}');
       }

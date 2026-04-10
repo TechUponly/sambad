@@ -22,6 +22,11 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
   bool _loading = true;
   String? _myRole;
 
+  String? get resolvedGroupId {
+    final svc = Provider.of<ChatService>(context, listen: false);
+    return widget.groupId ?? svc.serverIdForGroup(widget.groupName);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -29,16 +34,32 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
   }
 
   Future<void> _fetchGroupDetails() async {
-    if (widget.groupId == null) {
-      setState(() => _loading = false);
+    final svc = Provider.of<ChatService>(context, listen: false);
+    
+    // Resolve server ID: use passed groupId, or look up from ChatService
+    final resolvedId = resolvedGroupId ?? svc.serverIdForGroup(widget.groupName);
+
+    if (resolvedId == null) {
+      // No server ID — show local data as fallback
+      final localMembers = svc.membersForGroup(widget.groupName);
+      setState(() {
+        _groupDetails = {
+          'name': widget.groupName,
+          'description': '',
+          'members': localMembers.map((phone) => {
+            'userId': phone, 'name': phone, 'phone': phone, 'role': 'member'
+          }).toList(),
+        };
+        _myRole = 'admin'; // Assume admin for local-only groups
+        _loading = false;
+      });
       return;
     }
 
     try {
-      final svc = Provider.of<ChatService>(context, listen: false);
       final headers = await svc.authHeaders();
       final resp = await http.get(
-        Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}'),
+        Uri.parse('${AppConfig.apiBase}/groups/$resolvedId'),
         headers: headers,
       ).timeout(const Duration(seconds: 10));
 
@@ -127,13 +148,13 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (result != null && result['name']!.isNotEmpty && widget.groupId != null) {
+    if (result != null && result['name']!.isNotEmpty && resolvedGroupId != null) {
       try {
         final svc = Provider.of<ChatService>(context, listen: false);
         final headers = await svc.authHeaders();
         headers['Content-Type'] = 'application/json';
         await http.put(
-          Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}'),
+          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}'),
           headers: headers,
           body: jsonEncode({'name': result['name'], 'description': result['description'], 'userId': svc.currentUserId}),
         );
@@ -194,12 +215,12 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (selected != null && widget.groupId != null) {
+    if (selected != null && resolvedGroupId != null) {
       try {
         final headers = await svc.authHeaders();
         headers['Content-Type'] = 'application/json';
         await http.post(
-          Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}/members'),
+          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/members'),
           headers: headers,
           body: jsonEncode({'userId': selected, 'addedBy': svc.currentUserId}),
         );
@@ -229,12 +250,12 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (confirm == true && widget.groupId != null) {
+    if (confirm == true && resolvedGroupId != null) {
       try {
         final svc = Provider.of<ChatService>(context, listen: false);
         final headers = await svc.authHeaders();
         await http.delete(
-          Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}/members/$userId?removedBy=${svc.currentUserId}'),
+          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/members/$userId?removedBy=${svc.currentUserId}'),
           headers: headers,
         );
         _fetchGroupDetails();
@@ -252,7 +273,7 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       final headers = await svc.authHeaders();
       headers['Content-Type'] = 'application/json';
       await http.put(
-        Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}/members/$userId/role'),
+        Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/members/$userId/role'),
         headers: headers,
         body: jsonEncode({'role': newRole, 'changedBy': svc.currentUserId}),
       );
@@ -281,13 +302,13 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (confirm == true && widget.groupId != null) {
+    if (confirm == true && resolvedGroupId != null) {
       try {
         final svc = Provider.of<ChatService>(context, listen: false);
         final headers = await svc.authHeaders();
         headers['Content-Type'] = 'application/json';
         await http.post(
-          Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}/exit'),
+          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}/exit'),
           headers: headers,
           body: jsonEncode({'userId': svc.currentUserId}),
         );
@@ -320,12 +341,12 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
       ),
     );
 
-    if (confirm == true && widget.groupId != null) {
+    if (confirm == true && resolvedGroupId != null) {
       try {
         final svc = Provider.of<ChatService>(context, listen: false);
         final headers = await svc.authHeaders();
         await http.delete(
-          Uri.parse('${AppConfig.apiBase}/groups/${widget.groupId}?userId=${svc.currentUserId}'),
+          Uri.parse('${AppConfig.apiBase}/groups/${resolvedGroupId}?userId=${svc.currentUserId}'),
           headers: headers,
         );
         svc.removeGroupLocally(widget.groupName);
