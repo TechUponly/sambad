@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -122,14 +123,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 14)),
           decoration: InputDecoration(
             hintText: 'Search contacts...',
-            hintStyle: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 14)),
+            hintStyle: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 14)),
             filled: true,
-            fillColor: Colors.white10,
+            fillColor: AppColors.of(context).text.withValues(alpha: 0.08),
             contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: Responsive.horizontal(context, 12)),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24)), borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24)), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
-            prefixIcon: Icon(Icons.search, color: Colors.white54, size: Responsive.size(context, 20)),
-            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear, color: Colors.white54, size: Responsive.size(context, 18)), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
+            prefixIcon: Icon(Icons.search, color: AppColors.of(context).textMuted, size: Responsive.size(context, 20)),
+            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear, color: AppColors.of(context).textMuted, size: Responsive.size(context, 18)), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
           ),
           onChanged: (value) => setState(() => _searchQuery = value),
         ),
@@ -233,11 +234,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           highlightColor: AppColors.primaryBlue.withValues(alpha: 0.2),
           child: Container(
             padding: Responsive.paddingSymmetric(context, v: 16, h: 8),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+            decoration: BoxDecoration(color: AppColors.of(context).text.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: Colors.white, size: Responsive.size(context, 28)),
+                Icon(icon, color: AppColors.of(context).text, size: Responsive.size(context, 28)),
                 SizedBox(height: Responsive.vertical(context, 6)),
                 Text(label, style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
@@ -280,7 +281,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final groups = chatService.groups.toList();
       if (groups.isEmpty) {
         return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.groups, size: Responsive.size(context, 64), color: Colors.white54),
+          Icon(Icons.groups, size: Responsive.size(context, 64), color: AppColors.of(context).textMuted),
           SizedBox(height: Responsive.vertical(context, 16)),
           Text('No groups yet', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
           SizedBox(height: Responsive.vertical(context, 12)),
@@ -309,9 +310,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: ListTile(
                 leading: GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group))),
-                  child: CircleAvatar(backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2), child: const Icon(Icons.group, color: AppColors.primaryBlue)),
+                  child: FutureBuilder<SharedPreferences>(
+                    future: SharedPreferences.getInstance(),
+                    builder: (context, snap) {
+                      final photoPath = snap.data?.getString('group_photo_$group');
+                      final hasPhoto = photoPath != null && File(photoPath).existsSync();
+                      return CircleAvatar(
+                        backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2),
+                        backgroundImage: hasPhoto ? FileImage(File(photoPath)) : null,
+                        child: hasPhoto ? null : const Icon(Icons.group, color: AppColors.primaryBlue),
+                      );
+                    },
+                  ),
                 ),
-                title: Text(group, style: TextStyle(color: isBlocked ? Colors.white38 : Colors.white, fontWeight: FontWeight.w600)),
+                title: Text(group, style: TextStyle(color: isBlocked ? AppColors.of(context).textHint : AppColors.of(context).text, fontWeight: FontWeight.w600)),
                 subtitle: isBlocked
                     ? Row(children: [
                         Icon(Icons.block, color: Colors.redAccent, size: Responsive.fontSize(context, 13)),
@@ -323,15 +335,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ? () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group is blocked. Unblock to chat.'), backgroundColor: Colors.red.shade700))
                     : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))),
                 trailing: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white54),
-                  color: const Color(0xFF23272F),
+                  icon: Icon(Icons.more_vert, color: AppColors.of(context).textMuted),
+                  color: AppColors.of(context).card,
                   onSelected: (value) async {
                     if (value == 'info') {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group)));
                     } else if (value == 'exit') {
                       final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
                         backgroundColor: AppColors.of(context).card,
-                        title: const Text('Exit Group', style: TextStyle(color: Colors.white)),
+                        title: Text('Exit Group', style: TextStyle(color: AppColors.of(context).text)),
                         content: Text('Leave "$group"?', style: TextStyle(color: AppColors.of(context).textSecondary)),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -351,7 +363,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     } else if (value == 'delete') {
                       final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
                         backgroundColor: AppColors.of(context).card,
-                        title: const Text('Delete Group', style: TextStyle(color: Colors.white)),
+                        title: Text('Delete Group', style: TextStyle(color: AppColors.of(context).text)),
                         content: Text('Delete "$group" permanently?', style: TextStyle(color: AppColors.of(context).textSecondary)),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -365,9 +377,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'info', child: Text('Group Info', style: TextStyle(color: Colors.white))),
-                    if (!isBlocked) const PopupMenuItem(value: 'block', child: Text('Block', style: TextStyle(color: Colors.white))),
-                    if (isBlocked) const PopupMenuItem(value: 'unblock', child: Text('Unblock', style: TextStyle(color: Colors.white))),
+                    PopupMenuItem(value: 'info', child: Text('Group Info', style: TextStyle(color: AppColors.of(context).text))),
+                    if (!isBlocked) PopupMenuItem(value: 'block', child: Text('Block', style: TextStyle(color: AppColors.of(context).text))),
+                    if (isBlocked) PopupMenuItem(value: 'unblock', child: Text('Unblock', style: TextStyle(color: AppColors.of(context).text))),
                     const PopupMenuItem(value: 'exit', child: Text('Exit Group', style: TextStyle(color: Colors.orange))),
                     const PopupMenuItem(value: 'delete', child: Text('Delete Group', style: TextStyle(color: Colors.redAccent))),
                   ],
@@ -436,12 +448,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Syncing contacts...'), backgroundColor: AppColors.primaryBlue, duration: Duration(seconds: 1)),
                       );
-                      final result = await ContactsSyncService.syncContacts();
+                      final result = await ContactsSyncService.syncContacts(context: context);
                       if (!context.mounted) return;
                       if (result['success'] == true) {
                         setInnerState(() => contactsSynced = true);
+                        final added = result['addedLocally'] ?? 0;
+                        final total = result['totalContacts'] ?? 0;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('✅ Synced ${result['totalContacts']} contacts'), backgroundColor: Colors.green),
+                          SnackBar(
+                            content: Text('✅ $added new contacts added ($total total from phone)'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 3),
+                          ),
                         );
                       }
                     } catch (e) {
@@ -576,12 +594,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _settingsTile(
                   icon: Icons.info_outline,
                   title: 'About Private Samvad',
-                  subtitle: 'Version 4.0.11',
+                  subtitle: 'Version 4.1.0',
                   onTap: () {
                     showAboutDialog(
                       context: context,
                       applicationName: 'Private Samvad',
-                      applicationVersion: '4.0.11',
+                      applicationVersion: '4.1.0',
                       applicationIcon: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(12)),
@@ -688,7 +706,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Text('Category', style: TextStyle(color: c.textMuted, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  initialValue: category,
+                  value: category,
                   dropdownColor: c.card,
                   style: TextStyle(color: c.text),
                   decoration: InputDecoration(
@@ -843,8 +861,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           child: Icon(icon, color: AppColors.primaryBlue, size: Responsive.size(context, 22)),
         ),
         title: Text(title, style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 15), fontWeight: FontWeight.w500)),
-        subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 13))) : null,
-        trailing: trailing ?? (onTap != null ? Icon(Icons.chevron_right, color: Colors.white38, size: Responsive.size(context, 22)) : null),
+        subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 13))) : null,
+        trailing: trailing ?? (onTap != null ? Icon(Icons.chevron_right, color: AppColors.of(context).textHint, size: Responsive.size(context, 22)) : null),
         onTap: onTap,
       ),
     );
@@ -852,7 +870,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildBottomNav() {
     return Container(
-      decoration: BoxDecoration(color: Colors.black87, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, -2))]),
+      decoration: BoxDecoration(color: AppColors.of(context).card, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, -2))]),
       child: SafeArea(
         child: SizedBox(
           height: Responsive.size(context, 65),
@@ -884,9 +902,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? AppColors.primaryBlue : Colors.white70, size: Responsive.size(context, 24)),
+                  Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, size: Responsive.size(context, 24)),
                   SizedBox(height: Responsive.vertical(context, 4)),
-                  Text(label, style: TextStyle(color: isSelected ? AppColors.primaryBlue : Colors.white70, fontSize: Responsive.fontSize(context, 11), fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+                  Text(label, style: TextStyle(color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, fontSize: Responsive.fontSize(context, 11), fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
                 ],
               ),
             ),

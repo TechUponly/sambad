@@ -160,15 +160,18 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   Future<void> _deleteAccount() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: const Text('Delete Account?', style: TextStyle(color: Colors.white)),
-        content: const Text('This will delete all your data permanently.', style: TextStyle(color: Colors.white70)),
+      builder: (ctx) {
+        final tc = AppColors.of(ctx);
+        return AlertDialog(
+        backgroundColor: tc.card,
+        title: Text('Delete Account?', style: TextStyle(color: tc.text)),
+        content: Text('This will delete all your data permanently.', style: TextStyle(color: tc.textSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Colors.white60))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: TextStyle(color: tc.textMuted))),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Delete')),
         ],
-      ),
+      );
+      },
     );
     if (confirm != true) return;
     if (!mounted) return;
@@ -202,15 +205,18 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
   Future<void> _signOut() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
-        content: const Text('Are you sure?', style: TextStyle(color: Colors.white70)),
+      builder: (ctx) {
+        final tc = AppColors.of(ctx);
+        return AlertDialog(
+        backgroundColor: tc.card,
+        title: Text('Sign Out', style: TextStyle(color: tc.text)),
+        content: Text('Are you sure?', style: TextStyle(color: tc.textSecondary)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Colors.red))),
         ],
-      ),
+      );
+      },
     );
     if (confirm != true) return;
     if (!mounted) return;
@@ -228,14 +234,15 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profile', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 20))),
-        backgroundColor: AppColors.bgCard,
+        title: Text('Profile', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20))),
+        backgroundColor: c.card,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: c.text),
       ),
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: c.bg,
       body: SingleChildScrollView(
         padding: Responsive.paddingAll(context, 20),
         child: Form(
@@ -269,18 +276,18 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
               SizedBox(height: Responsive.vertical(context, 12)),
               // Phone number display (read-only)
               if (_phone != null)
-                Text(_phone!, style: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 14))),
+                Text(_phone!, style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14))),
               SizedBox(height: Responsive.vertical(context, 24)),
               TextFormField(
                 controller: _nameController,
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: c.text),
                 decoration: InputDecoration(
                   labelText: 'Name',
-                  labelStyle: const TextStyle(color: Colors.white60),
+                  labelStyle: TextStyle(color: c.textMuted),
                   prefixIcon: const Icon(Icons.person, color: AppColors.primaryBlue),
                   filled: true,
-                  fillColor: AppColors.bgCard,
+                  fillColor: c.card,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)), borderSide: BorderSide.none),
                 ),
               ),
@@ -288,27 +295,27 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
               TextFormField(
                 controller: _ageController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: c.text),
                 decoration: InputDecoration(
                   labelText: 'Age',
-                  labelStyle: const TextStyle(color: Colors.white60),
+                  labelStyle: TextStyle(color: c.textMuted),
                   prefixIcon: const Icon(Icons.cake, color: AppColors.primaryBlue),
                   filled: true,
-                  fillColor: AppColors.bgCard,
+                  fillColor: c.card,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)), borderSide: BorderSide.none),
                 ),
               ),
               SizedBox(height: Responsive.vertical(context, 16)),
               DropdownButtonFormField<String>(
-                initialValue: _gender,
-                dropdownColor: AppColors.bgCard,
-                style: const TextStyle(color: Colors.white),
+                value: _gender,
+                dropdownColor: c.card,
+                style: TextStyle(color: c.text),
                 decoration: InputDecoration(
                   labelText: 'Gender',
-                  labelStyle: const TextStyle(color: Colors.white60),
+                  labelStyle: TextStyle(color: c.textMuted),
                   prefixIcon: const Icon(Icons.wc, color: AppColors.primaryBlue),
                   filled: true,
-                  fillColor: AppColors.bgCard,
+                  fillColor: c.card,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)), borderSide: BorderSide.none),
                 ),
                 items: ['Male', 'Female', 'Other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
@@ -333,12 +340,14 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                   onPressed: () {
                     showDialog(
                       context: context,
-                      builder: (ctx) => AlertDialog(
-                        backgroundColor: AppColors.bgCard,
-                        title: const Text('Privacy & Security', style: TextStyle(color: Colors.white)),
-                        content: const Text(
+                      builder: (ctx) {
+                        final tc = AppColors.of(ctx);
+                        return AlertDialog(
+                        backgroundColor: tc.card,
+                        title: Text('Privacy & Security', style: TextStyle(color: tc.text)),
+                        content: Text(
                           'Your chats are end-to-end encrypted. Only you and your contacts can read your messages. We do not store your messages on our servers.',
-                          style: TextStyle(color: Colors.white70, height: 1.5),
+                          style: TextStyle(color: tc.textSecondary, height: 1.5),
                         ),
                         actions: [
                           TextButton(
@@ -346,7 +355,8 @@ class _ProfileSectionPageState extends State<ProfileSectionPage> {
                             child: const Text('Got it', style: TextStyle(color: AppColors.primaryBlue)),
                           ),
                         ],
-                      ),
+                      );
+                      },
                     );
                   },
                   icon: const Icon(Icons.security, color: AppColors.primaryBlue),

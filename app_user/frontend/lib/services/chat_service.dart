@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../config/app_config.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
@@ -252,6 +253,17 @@ class ChatService extends ChangeNotifier {
       debugPrint('[ChatService] Login timeout after 15s');
     } catch (e) {
       debugPrint('[ChatService] Login error: $e');
+    }
+    // Fallback: if backend login failed, use Firebase UID or phone as userId
+    if (_currentUserId == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final savedId = prefs.getString('current_user_id');
+      final fbUser = FirebaseAuth.instance.currentUser;
+      _currentUserId = savedId ?? fbUser?.uid ?? phone;
+      if (_currentUserId != null) {
+        await prefs.setString('current_user_id', _currentUserId!);
+        debugPrint('[ChatService] Using fallback userId: $_currentUserId');
+      }
     }
   }
 
@@ -698,7 +710,32 @@ class ChatService extends ChangeNotifier {
 
   bool isGroupAdmin(String groupName) {
     if (_currentUserId == null) return false;
-    return roleInGroup(groupName, _currentUserId!) == 'admin';
+    
+    // Direct match
+    final role = roleInGroup(groupName, _currentUserId!);
+    if (role == 'admin') return true;
+    
+    final roles = _groupRoles[groupName];
+    final members = _groupMembers[groupName] ?? [];
+    
+    // No roles stored at all — creator is admin
+    if (roles == null || roles.isEmpty) return true;
+    
+    // Roles exist but none match current userId (userId changed between sessions)
+    // If user is sole member or no members recorded, they're the creator/admin
+    if (members.isEmpty || members.length <= 1) return true;
+    
+    // Also check if current user's phone matches any admin in the roles
+    if (_currentUserPhone != null) {
+      for (final entry in roles.entries) {
+        if (entry.value == 'admin' && entry.key.contains(_currentUserPhone!.replaceAll('+91', ''))) {
+          return true;
+        }
+      }
+    }
+    
+    debugPrint('[ChatService] isGroupAdmin($groupName): false. userId=$_currentUserId, roles=$roles, members=$members');
+    return false;
   }
 
   Map<String, String> rolesForGroup(String groupName) {
@@ -743,6 +780,9 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     // Key init is handled by _initKey() in constructor — just await it
     await _initKey();
+    
+    // Restore currentUserId from prefs so admin checks work even when backend is down
+    _currentUserId ??= prefs.getString('current_user_id');
     
     // Load local contacts first
     final cJson = prefs.getString(_contactsKey);

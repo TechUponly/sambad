@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'models/message.dart';
 import 'services/chat_service.dart';
 import 'widgets/message_bubble.dart';
+import 'theme/app_colors.dart';
 
 class PrivateChatPage extends StatefulWidget {
   const PrivateChatPage({super.key});
@@ -126,13 +127,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: Colors.black54,
+              color: AppColors.of(context).card,
               child: SafeArea(
                 child: Row(
                   children: [
                     IconButton(
                       onPressed: () {},
-                      icon: const Icon(Icons.lock, color: Colors.white),
+                      icon: Icon(Icons.lock, color: AppColors.of(context).textMuted),
                       tooltip: 'Private & encrypted',
                     ),
                     IconButton(
@@ -151,12 +152,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     Expanded(
                       child: TextField(
                         controller: _ctrl,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: AppColors.of(context).text),
                         decoration: InputDecoration(
                           hintText: 'Type a private message',
-                          hintStyle: const TextStyle(color: Colors.white54),
+                          hintStyle: TextStyle(color: AppColors.of(context).textMuted),
                           filled: true,
-                          fillColor: Colors.white12,
+                          fillColor: AppColors.of(context).text.withValues(alpha: 0.08),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,

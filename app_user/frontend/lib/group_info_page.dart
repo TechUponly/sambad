@@ -96,7 +96,9 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
             }
             // Try to find contact name
             final contact = contacts.where((c) => c.id == uid).toList();
-            final name = contact.isNotEmpty ? contact.first.name : uid;
+            // If no contact found and uid looks like Firebase UID (long alphanumeric), show "Member" instead
+            final rawName = contact.isNotEmpty ? contact.first.name : uid;
+            final name = (rawName.length > 20 && !rawName.startsWith('+')) ? 'Member' : rawName;
             final phone = contact.isNotEmpty ? contact.first.phone : '';
             final role = roles[uid] ?? 'member';
             return {'userId': uid, 'name': name, 'phone': phone, 'role': role};
@@ -161,7 +163,8 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
           return {'userId': uid, 'name': myName, 'phone': myPhone, 'role': role};
         }
         final contact = contacts.where((c) => c.id == uid).toList();
-        final name = contact.isNotEmpty ? contact.first.name : uid;
+        final rawName = contact.isNotEmpty ? contact.first.name : uid;
+        final name = (rawName.length > 20 && !rawName.startsWith('+')) ? 'Member' : rawName;
         final phone = contact.isNotEmpty ? contact.first.phone : '';
         final role = roles[uid] ?? 'member';
         return <String, dynamic>{'userId': uid, 'name': name, 'phone': phone, 'role': role};
@@ -563,17 +566,20 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                   SizedBox(height: Responsive.vertical(context, 24)),
 
                   // Members Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Members', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.bold)),
-                      if (isAdmin)
-                        TextButton.icon(
-                          onPressed: _addMember,
-                          icon: const Icon(Icons.person_add, size: 18),
-                          label: const Text('Add'),
-                        ),
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Members', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.bold)),
+                        if (isAdmin)
+                          TextButton.icon(
+                            onPressed: _addMember,
+                            icon: const Icon(Icons.person_add, size: 18),
+                            label: const Text('Add'),
+                          ),
+                      ],
+                    ),
                   ),
                   SizedBox(height: Responsive.vertical(context, 8)),
 
@@ -595,7 +601,14 @@ class _GroupInfoPageState extends State<GroupInfoPage> {
                         ),
                         title: Row(
                           children: [
-                            Text(isMe ? '$name (You)' : name, style: TextStyle(color: c.text, fontWeight: FontWeight.w600)),
+                            Flexible(
+                              child: Text(
+                                isMe ? '$name (You)' : name,
+                                style: TextStyle(color: c.text, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
                             if (role == 'admin') ...[
                               const SizedBox(width: 8),
                               Container(

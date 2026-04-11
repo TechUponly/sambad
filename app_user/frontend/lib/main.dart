@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:provider/provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -80,7 +80,8 @@ Future<void> main() async {
   });
 
   // Screen protector only works on mobile
-  if (!kIsWeb) {
+  // NOTE: protectDataLeakageOn() adds FLAG_SECURE which can block text input on emulators
+  if (!kIsWeb && kReleaseMode) {
     try {
       await ScreenProtector.preventScreenshotOn();
       await ScreenProtector.protectDataLeakageOn();
@@ -180,6 +181,13 @@ class MyApp extends StatelessWidget {
           foregroundColor: AppColors.textDark,
           elevation: 0,
           iconTheme: IconThemeData(color: AppColors.textDark),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: AppColors.primaryBlue,
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: AppColors.bgCardLight,

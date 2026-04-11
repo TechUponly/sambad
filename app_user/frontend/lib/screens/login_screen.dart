@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import '../utils/phone_validator.dart';
+import '../utils/country_code_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // ...existing code...
@@ -311,8 +312,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: Responsive.paddingAll(context, 24),
@@ -325,13 +327,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Icon(Icons.chat_bubble, color: Colors.white, size: Responsive.size(context, 40)),
               ),
               SizedBox(height: Responsive.vertical(context, 24)),
-              Text('Welcome to Samvad', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 28), fontWeight: FontWeight.bold)),
+              Text('Welcome to Samvad', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 28), fontWeight: FontWeight.bold)),
               SizedBox(height: Responsive.vertical(context, 8)),
-              Text('Private & secure messaging', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 16))),
+              Text('Private & secure messaging', style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 16))),
               SizedBox(height: Responsive.vertical(context, 48)),
               Container(
                 padding: Responsive.paddingAll(context, 24),
-                decoration: BoxDecoration(color: AppColors.bgCard, borderRadius: BorderRadius.circular(Responsive.radius(context, 20))),
+                decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(Responsive.radius(context, 20))),
                 child: Column(
                   children: [
                     if (!_codeSent) ...[
@@ -339,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 20), letterSpacing: 2),
+                        style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20), letterSpacing: 2),
                         cursorColor: AppColors.primaryBlue,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -348,24 +350,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         onChanged: (val) => setState(() {}),
                         decoration: InputDecoration(
                           hintText: 'Enter phone number',
-                          hintStyle: TextStyle(color: Colors.white30, fontSize: Responsive.fontSize(context, 18), letterSpacing: 0),
+                          hintStyle: TextStyle(color: c.textHint, fontSize: Responsive.fontSize(context, 18), letterSpacing: 0),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.08),
+                          fillColor: c.text.withValues(alpha: 0.08),
                           prefixIcon: GestureDetector(
                             onTap: () async {
-                              final codes = ['+91', '+1', '+44', '+61', '+86', '+81', '+49', '+33', '+971', '+92', '+880', '+65'];
-                              final selected = await showDialog<String>(
-                                context: context,
-                                builder: (ctx) => SimpleDialog(
-                                  backgroundColor: AppColors.bgCard,
-                                  title: Text('Select Country Code', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 18))),
-                                  children: codes.map((c) => SimpleDialogOption(
-                                    onPressed: () => Navigator.pop(ctx, c),
-                                    child: Text(c, style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 16))),
-                                  )).toList(),
-                                ),
-                              );
-                              if (selected != null) setState(() => _countryCode = selected);
+                              final selected = await showCountryCodePicker(context);
+                              if (selected != null) setState(() => _countryCode = selected.code);
                             },
                             child: Container(
                               padding: EdgeInsets.symmetric(horizontal: Responsive.horizontal(context, 12)),
@@ -373,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(_countryCode, style: TextStyle(color: AppColors.primaryBlue, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.bold)),
-                                  Icon(Icons.arrow_drop_down, color: Colors.white54, size: Responsive.size(context, 20)),
+                                  Icon(Icons.arrow_drop_down, color: c.textMuted, size: Responsive.size(context, 20)),
                                 ],
                               ),
                             ),
@@ -390,7 +381,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_phoneController.text.length}/${PhoneValidator.getExpectedDigits(_countryCode)} digits',
-                          style: TextStyle(color: Colors.white38, fontSize: Responsive.fontSize(context, 12)),
+                          style: TextStyle(color: c.textHint, fontSize: Responsive.fontSize(context, 12)),
                         ),
                       ),
                       SizedBox(height: Responsive.vertical(context, 24)),
@@ -413,9 +404,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ] else ...[
-                      Text('Enter OTP', style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 20), fontWeight: FontWeight.bold)),
+                      Text('Enter OTP', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20), fontWeight: FontWeight.bold)),
                       SizedBox(height: Responsive.vertical(context, 8)),
-                      Text('Sent to $_countryCode${_phoneController.text}', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 14))),
+                      Text('Sent to $_countryCode${_phoneController.text}', style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14))),
                       SizedBox(height: Responsive.vertical(context, 24)),
                       
                       // Smart OTP Input Fields — responsive width
@@ -434,14 +425,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   keyboardType: TextInputType.number,
                                   textAlign: TextAlign.center,
                                   maxLength: 1,
-                                  style: TextStyle(color: Colors.white, fontSize: Responsive.fontSize(context, 20), fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20), fontWeight: FontWeight.bold),
                                   decoration: InputDecoration(
                                     counterText: '',
                                     filled: true,
-                                    fillColor: Colors.white10,
+                                    fillColor: c.text.withValues(alpha: 0.08),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
-                                      borderSide: const BorderSide(color: Colors.white24),
+                                      borderSide: BorderSide(color: c.textHint),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
@@ -449,7 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
-                                      borderSide: const BorderSide(color: Colors.white24),
+                                      borderSide: BorderSide(color: c.textHint),
                                     ),
                                     errorBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
@@ -497,7 +488,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         else
                           Text(
                             'Resend OTP in $_resendSeconds seconds',
-                            style: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 14)),
+                            style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14)),
                           ),
                         
                         SizedBox(height: Responsive.vertical(context, 8)),
@@ -513,7 +504,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
                             _resendTimer?.cancel();
                           },
-                          child: Text('Change number', style: TextStyle(color: Colors.white60, fontSize: Responsive.fontSize(context, 14))),
+                          child: Text('Change number', style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14))),
                         ),
                       ],
                     ],
@@ -524,7 +515,7 @@ class _LoginScreenState extends State<LoginScreen> {
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
-                  style: TextStyle(color: Colors.white54, fontSize: Responsive.fontSize(context, 12)),
+                  style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 12)),
                   children: [
                     const TextSpan(text: 'By continuing, you agree to our\n'),
                     TextSpan(

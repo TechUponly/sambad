@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../utils/responsive.dart';
+import '../theme/app_colors.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -30,6 +31,7 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final radius = BorderRadius.circular(20);
     final bg = isMe
         ? const LinearGradient(
@@ -37,12 +39,12 @@ class MessageBubble extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
-        : const LinearGradient(
-            colors: [Color(0xFF232B3E), Color(0xFF181A20)],
+        : LinearGradient(
+            colors: [c.card, c.bg],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
-    final textColor = Colors.white;
+    final textColor = isMe ? Colors.white : c.text;
 
     final maxBubbleWidth = Responsive.widthPercent(context, 0.75);
     return AnimatedAlign(
@@ -85,7 +87,7 @@ class MessageBubble extends StatelessWidget {
                   if (message.private)
                     Padding(
                       padding: const EdgeInsets.only(right: 6.0),
-                      child: Icon(Icons.lock, size: 16, color: isMe ? Colors.black54 : Colors.white70),
+                      child: Icon(Icons.lock, size: 16, color: isMe ? Colors.black54 : c.textMuted),
                     ),
                   Flexible(
                     child: Text(
@@ -111,7 +113,7 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     _formatTime(message.timestamp),
                     style: TextStyle(
-                      color: isMe ? Colors.white60 : Colors.white54,
+                      color: isMe ? Colors.white60 : c.textMuted,
                       fontSize: Responsive.fontSize(context, 11),
                       fontWeight: FontWeight.w500,
                     ),

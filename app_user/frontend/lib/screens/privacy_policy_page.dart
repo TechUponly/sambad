@@ -6,13 +6,14 @@ class PrivacyPolicyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: c.bg,
       appBar: AppBar(
-        backgroundColor: Colors.black87,
-        title: const Text('Privacy Policy', style: TextStyle(color: Colors.white)),
+        backgroundColor: c.card,
+        title: Text('Privacy Policy', style: TextStyle(color: c.text)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: c.text),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -20,14 +21,14 @@ class PrivacyPolicyPage extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('Privacy Policy', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-            SizedBox(height: 24),
-            Text('We collect your phone number for authentication and contacts (with your permission) to help you connect with friends on Samvad.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
-            SizedBox(height: 16),
-            Text('Your messages are end-to-end encrypted. We never sell or share your personal data with third parties.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
-            SizedBox(height: 16),
-            Text('You can delete your account and all data at any time from Settings.', style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.5)),
+          children: [
+            Text('Privacy Policy', style: TextStyle(color: c.text, fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            Text('We collect your phone number for authentication and contacts (with your permission) to help you connect with friends on Samvad.', style: TextStyle(color: c.textSecondary, fontSize: 15, height: 1.5)),
+            const SizedBox(height: 16),
+            Text('Your messages are end-to-end encrypted. We never sell or share your personal data with third parties.', style: TextStyle(color: c.textSecondary, fontSize: 15, height: 1.5)),
+            const SizedBox(height: 16),
+            Text('You can delete your account and all data at any time from Settings.', style: TextStyle(color: c.textSecondary, fontSize: 15, height: 1.5)),
           ],
         ),
       ),

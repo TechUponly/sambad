@@ -28,8 +28,10 @@ class ContactTile extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Dialog(
-          backgroundColor: AppColors.bgCard,
+        builder: (ctx, setDialogState) {
+          final tc = AppColors.of(ctx);
+          return Dialog(
+          backgroundColor: tc.card,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -37,18 +39,18 @@ class ContactTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Edit Contact', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text('Edit Contact', style: TextStyle(color: tc.text, fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 TextField(
                   controller: nameCtrl,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: tc.text),
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
                     labelText: 'Name',
-                    labelStyle: const TextStyle(color: Colors.white60),
+                    labelStyle: TextStyle(color: tc.textMuted),
                     prefixIcon: const Icon(Icons.person, color: AppColors.primaryBlue),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    fillColor: tc.text.withValues(alpha: 0.08),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   ),
                 ),
@@ -61,11 +63,11 @@ class ContactTile extends StatelessWidget {
                         final selected = await showDialog<String>(
                           context: ctx,
                           builder: (c) => SimpleDialog(
-                            backgroundColor: AppColors.bgCard,
-                            title: const Text('Country Code', style: TextStyle(color: Colors.white)),
+                            backgroundColor: tc.card,
+                            title: Text('Country Code', style: TextStyle(color: tc.text)),
                             children: codes.map((cc) => SimpleDialogOption(
                               onPressed: () => Navigator.pop(c, cc),
-                              child: Text(cc, style: const TextStyle(color: Colors.white)),
+                              child: Text(cc, style: TextStyle(color: tc.text)),
                             )).toList(),
                           ),
                         );
@@ -74,14 +76,14 @@ class ContactTile extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: tc.text.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(countryCode, style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold)),
-                            const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 18),
+                            const Icon(Icons.arrow_drop_down, color: Colors.grey, size: 18),
                           ],
                         ),
                       ),
@@ -91,16 +93,16 @@ class ContactTile extends StatelessWidget {
                       child: TextField(
                         controller: phoneCtrl,
                         keyboardType: TextInputType.phone,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: tc.text),
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(PhoneValidator.getExpectedDigits(countryCode)),
                         ],
                         decoration: InputDecoration(
                           labelText: 'Phone',
-                          labelStyle: const TextStyle(color: Colors.white60),
+                          labelStyle: TextStyle(color: tc.textMuted),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.08),
+                          fillColor: tc.text.withValues(alpha: 0.08),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                         ),
                       ),
@@ -113,7 +115,7 @@ class ContactTile extends StatelessWidget {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                      child: Text('Cancel', style: TextStyle(color: tc.textSecondary)),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
@@ -139,7 +141,8 @@ class ContactTile extends StatelessWidget {
               ],
             ),
           ),
-        ),
+        );
+        },
       ),
     );
   }
@@ -147,6 +150,7 @@ class ContactTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final svc = Provider.of<ChatService>(context);
+    final ct = AppColors.of(context);
     final isBlocked = svc.blockedContacts.contains(contact.id);
     final isOnline = svc.isOnline(contact.id);
     return Opacity(
@@ -178,20 +182,20 @@ class ContactTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.greenAccent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF23272F), width: 2),
+                  border: Border.all(color: ct.card, width: 2),
                 ),
               ),
             ),
         ],
       ),
-      title: Text(contact.name, style: TextStyle(color: isBlocked ? Colors.white38 : Colors.white, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
+      title: Text(contact.name, style: TextStyle(color: isBlocked ? ct.textHint : ct.text, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
       subtitle: isBlocked
           ? Row(children: [
               Icon(Icons.block, color: Colors.redAccent, size: Responsive.fontSize(context, 13)),
               const SizedBox(width: 4),
               Text('Blocked', style: TextStyle(color: Colors.redAccent, fontSize: Responsive.fontSize(context, 13), fontWeight: FontWeight.w500)),
             ])
-          : Text(contact.phone, style: TextStyle(color: Colors.white70, fontSize: Responsive.fontSize(context, 13))),
+          : Text(contact.phone, style: TextStyle(color: ct.textSecondary, fontSize: Responsive.fontSize(context, 13))),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -202,8 +206,8 @@ class ContactTile extends StatelessWidget {
               child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 12)),
             ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color(0xFF23272F),
+            icon: Icon(Icons.more_vert, color: ct.textMuted),
+            color: ct.card,
             onSelected: (value) async {
               if (value == 'edit') {
                 _showEditDialog(context, svc);
@@ -216,11 +220,7 @@ class ContactTile extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF23272F), Color(0xFF18181B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: ct.card,
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.18),
@@ -235,16 +235,16 @@ class ContactTile extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Delete Contact', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22, fontFamily: 'Montserrat')),
+                          Text('Delete Contact', style: TextStyle(color: ct.text, fontWeight: FontWeight.bold, fontSize: 22, fontFamily: 'Montserrat')),
                           const SizedBox(height: 18),
-                          Text('Are you sure you want to delete ${contact.name}?', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                          Text('Are you sure you want to delete ${contact.name}?', style: TextStyle(color: ct.textSecondary, fontSize: 16)),
                           const SizedBox(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               TextButton(
                                 onPressed: () => Navigator.of(ctx).pop(false),
-                                style: TextButton.styleFrom(foregroundColor: Colors.white70, textStyle: const TextStyle(fontWeight: FontWeight.bold)),
+                                style: TextButton.styleFrom(foregroundColor: ct.textSecondary, textStyle: const TextStyle(fontWeight: FontWeight.bold)),
                                 child: const Text('Cancel'),
                               ),
                               const SizedBox(width: 12),
@@ -285,19 +285,19 @@ class ContactTile extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'edit',
-                child: Text('Edit', style: TextStyle(color: Colors.white)),
+                child: Text('Edit', style: TextStyle(color: ct.text)),
               ),
               if (!isBlocked)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'block',
-                  child: Text('Block', style: TextStyle(color: Colors.white)),
+                  child: Text('Block', style: TextStyle(color: ct.text)),
                 ),
               if (isBlocked)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'unblock',
-                  child: Text('Unblock', style: TextStyle(color: Colors.white)),
+                  child: Text('Unblock', style: TextStyle(color: ct.text)),
                 ),
               const PopupMenuItem(
                 value: 'delete',
