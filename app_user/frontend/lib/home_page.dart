@@ -594,7 +594,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _settingsTile(
                   icon: Icons.info_outline,
                   title: 'About Private Samvad',
-                  subtitle: 'Version 4.1.0',
+                  subtitle: 'Version 4.1.0+11',
                   onTap: () {
                     showAboutDialog(
                       context: context,

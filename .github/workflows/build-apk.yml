@@ -7,54 +7,73 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    name: Build Android APK
+    name: Build Android APK & AAB
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-      - name: Setup Fixed Keystore
+
+      - name: Setup Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
+          # Always create a debug keystore for fallback
           mkdir -p ~/.android
+          keytool -genkeypair -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Debug,O=Android,C=US" 2>/dev/null || true
+
+          # If release keystore secret exists, decode and configure it
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" > /tmp/ks.txt
-            base64 -d /tmp/ks.txt > ~/.android/debug.keystore
+            echo "$KEYSTORE_BASE64" | base64 -d > app_user/frontend/private-sambad-release.keystore
+            cat > app_user/frontend/android/key.properties << EOF
+          storePassword=${STORE_PASSWORD:-sambad2025}
+          keyPassword=${KEY_PASSWORD:-sambad2025}
+          keyAlias=${KEY_ALIAS:-private-sambad}
+          storeFile=../../private-sambad-release.keystore
+          EOF
+            echo "✅ Release keystore configured"
           else
-            keytool -genkeypair -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Debug,O=Android,C=US"
+            echo "⚠️ No KEYSTORE_BASE64 secret — using debug signing"
           fi
-          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep -E "SHA1|SHA256"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 'any'
           channel: 'stable'
-      - name: Clean Flutter
-        working-directory: ./app_user/frontend
-        run: flutter clean
+
       - name: Get dependencies
         working-directory: ./app_user/frontend
-        run: flutter pub get
-      - name: Build APK
+        run: |
+          flutter clean
+          flutter pub get
+
+      - name: Build APK (release)
         working-directory: ./app_user/frontend
         run: flutter build apk --release
-      - name: Build AAB
+
+      - name: Build AAB (release)
         working-directory: ./app_user/frontend
         run: flutter build appbundle --release
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: sambad-app-${{ github.run_number }}
+          name: sambad-apk-${{ github.run_number }}
           path: app_user/frontend/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 90
+
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: sambad-playstore-${{ github.run_number }}
+          name: sambad-aab-${{ github.run_number }}
           path: app_user/frontend/build/app/outputs/bundle/release/app-release.aab
           retention-days: 90

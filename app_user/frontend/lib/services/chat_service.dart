@@ -416,6 +416,112 @@ class ChatService extends ChangeNotifier {
       _typingTimers[from]?.cancel();
       _typingTimers.remove(from);
       notifyListeners();
+    } else if (type == 'group_message' && data != null) {
+      // Incoming group message
+      final groupId = data['groupId']?.toString() ?? '';
+      final fromId = data['fromId'] ?? data['from'] ?? '';
+      final fromName = data['fromName'] ?? 'Unknown';
+      final content = data['content'] ?? data['text'] ?? '';
+      
+      // Skip messages from self
+      if (fromId == _currentUserId) return;
+      
+      // Find group name by server ID
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) {
+          groupName = entry.key;
+          break;
+        }
+      }
+      if (groupName == null) {
+        debugPrint('[WS] group_message for unknown group: $groupId');
+        return;
+      }
+      
+      final conversationKey = groupIdForName(groupName);
+      final message = Message(
+        id: data['id']?.toString() ?? '${groupId}_${DateTime.now().millisecondsSinceEpoch}',
+        from: fromName,
+        text: content,
+        timestamp: data['timestamp'] is int
+            ? data['timestamp']
+            : DateTime.tryParse(data['timestamp']?.toString() ?? '')
+                  ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+      );
+      
+      _messages.putIfAbsent(conversationKey, () => []);
+      if (!_messages[conversationKey]!.any((m) => m.id == message.id)) {
+        _messages[conversationKey]!.add(message);
+        debugPrint('[WS] Group message in "$groupName" from $fromName: $content');
+        _saveMessages();
+        notifyListeners();
+      }
+    } else if (type == 'group_added' && data != null) {
+      final groupName = data['groupName']?.toString() ?? '';
+      final groupId = data['groupId']?.toString() ?? '';
+      if (groupName.isNotEmpty && !_groups.contains(groupName)) {
+        _groups.add(groupName);
+        if (groupId.isNotEmpty) _groupServerIds[groupName] = groupId;
+        _groupMembers[groupName] ??= [];
+        _saveGroups();
+        _saveGroupServerIds();
+        notifyListeners();
+        debugPrint('[WS] Added to group: $groupName');
+      }
+    } else if (type == 'group_removed' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null) {
+        removeGroupLocally(groupName);
+        debugPrint('[WS] Removed from group: $groupName');
+      }
+    } else if (type == 'group_updated' && data != null) {
+      debugPrint('[WS] Group updated: ${data['groupId']}');
+      notifyListeners();
+    } else if (type == 'group_deleted' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null) {
+        removeGroupLocally(groupName);
+        debugPrint('[WS] Group deleted: $groupName');
+      }
+    } else if (type == 'group_role_changed' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      final userId = data['userId']?.toString() ?? '';
+      final newRole = data['role']?.toString() ?? 'member';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null && userId.isNotEmpty) {
+        setMemberRole(groupName, userId, newRole);
+        debugPrint('[WS] Role changed in $groupName: $userId → $newRole');
+      }
+    } else if (type == 'member_exited' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      final userId = data['userId']?.toString() ?? '';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null && userId.isNotEmpty) {
+        removeMemberFromGroup(groupName, userId);
+        debugPrint('[WS] Member $userId exited $groupName');
+      }
+    } else if (type == 'connected') {
+      debugPrint('[WS] Server welcome: ${msg['message'] ?? 'connected'}');
+    } else if (type == 'message_sent') {
+      // Multi-device echo — ignore on same device
+      debugPrint('[WS] message_sent echo');
+    } else {
+      debugPrint('[WS] Unhandled event: $type');
     }
   }
 
@@ -956,7 +1062,7 @@ class ChatService extends ChangeNotifier {
     // Send message via API for WebSocket sync
     try {
       final prefs = await SharedPreferences.getInstance();
-      String? currentUserId = prefs.getString('current_user_id');
+      String? currentUserId = prefs.getString('current_user_id') ?? _currentUserId;
       
       if (currentUserId == null && _currentUserPhone != null) {
         // Get/create current user from stored phone
@@ -977,28 +1083,58 @@ class ChatService extends ChangeNotifier {
       }
       
       if (currentUserId != null) {
-        // Find contact to get their phone number
-        final targetContact = _contacts.firstWhere(
-          (c) => c.id == contactId,
-          orElse: () => Contact(id: contactId, name: '', phone: contactId),
-        );
-        
-        // Send message via API for WebSocket sync
         final headers = await _authHeaders();
-        final messageResponse = await http.post(
-          Uri.parse('${AppConfig.apiBase}/messages'),
-          headers: headers,
-          body: jsonEncode({
-            'fromId': currentUserId,
-            'toId': targetContact.phone,
-            'content': text,
-          }),
-        );
         
-        if (messageResponse.statusCode == 201) {
-          debugPrint('[ChatService] Message sent via API for WebSocket sync');
+        // Check if this is a group message (contactId starts with 'chat_')
+        if (contactId.startsWith('chat_')) {
+          // Group message — find server ID and send via group messages API
+          String? serverId;
+          for (final entry in _groupServerIds.entries) {
+            if (groupIdForName(entry.key) == contactId) {
+              serverId = entry.value;
+              break;
+            }
+          }
+          if (serverId != null) {
+            final messageResponse = await http.post(
+              Uri.parse('${AppConfig.apiBase}/groups/$serverId/messages'),
+              headers: headers,
+              body: jsonEncode({
+                'fromId': currentUserId,
+                'content': text,
+              }),
+            ).timeout(const Duration(seconds: 10));
+            
+            if (messageResponse.statusCode == 201) {
+              debugPrint('[ChatService] Group message sent via API');
+            } else {
+              debugPrint('[ChatService] Failed to send group message: ${messageResponse.statusCode}');
+            }
+          } else {
+            debugPrint('[ChatService] No server ID for group: $contactId');
+          }
         } else {
-          debugPrint('[ChatService] Failed to send message via API: ${messageResponse.statusCode}');
+          // 1:1 message — find contact by phone (contactId IS the phone number)
+          final targetContact = _contacts.firstWhere(
+            (c) => c.phone == contactId || ChatService.phonesMatch(c.phone, contactId),
+            orElse: () => Contact(id: contactId, name: '', phone: contactId),
+          );
+          
+          final messageResponse = await http.post(
+            Uri.parse('${AppConfig.apiBase}/messages'),
+            headers: headers,
+            body: jsonEncode({
+              'fromId': currentUserId,
+              'toId': targetContact.phone,
+              'content': text,
+            }),
+          ).timeout(const Duration(seconds: 10));
+          
+          if (messageResponse.statusCode == 201) {
+            debugPrint('[ChatService] Message sent via API for WebSocket sync');
+          } else {
+            debugPrint('[ChatService] Failed to send message via API: ${messageResponse.statusCode}');
+          }
         }
       }
     } catch (e) {
