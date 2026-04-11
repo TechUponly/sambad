@@ -11,14 +11,17 @@ class ContactsSyncService {
   static String get _baseUrl => AppConfig.backendBase;
   
   static Future<bool> requestContactsPermission() async {
-    return await FlutterContacts.requestPermission();
+    final status = await FlutterContacts.permissions.request(PermissionType.readWrite);
+    return status == PermissionStatus.granted || status == PermissionStatus.limited;
   }
-  
+
   /// Sync phone contacts: reads from phone, adds to ChatService locally,
   /// and also pushes to the backend for server-side sync.
   static Future<Map<String, dynamic>> syncContacts({BuildContext? context}) async {
     try {
-      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      final contacts = await FlutterContacts.getAll(
+        properties: {ContactProperty.phone, ContactProperty.name},
+      );
       
       // Filter to contacts that have a phone number
       final withPhone = contacts.where((c) => c.phones.isNotEmpty).toList();
@@ -36,8 +39,8 @@ class ContactsSyncService {
         try {
           final svc = context.read<ChatService>();
           final batch = withPhone.map((c) => <String, String>{
-            'id': DateTime.now().millisecondsSinceEpoch.toString() + c.displayName.hashCode.toString(),
-            'name': c.displayName,
+            'id': DateTime.now().millisecondsSinceEpoch.toString() + (c.displayName ?? '').hashCode.toString(),
+            'name': c.displayName ?? '',
             'phone': c.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
           }).toList();
           addedLocally = await svc.addContactsBatch(batch);

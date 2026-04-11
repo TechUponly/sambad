@@ -285,7 +285,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final status = await Permission.contacts.request();
       if (status.isGranted) {
-        final contacts = await FlutterContacts.getContacts(withProperties: true);
+        final contacts = await FlutterContacts.getAll(
+          properties: {ContactProperty.phone, ContactProperty.name},
+        );
         if (mounted) {
           final chatService = context.read<ChatService>();
           // Build batch list instead of adding one-by-one
@@ -293,8 +295,8 @@ class _LoginScreenState extends State<LoginScreen> {
           for (var contact in contacts) {
             if (contact.phones.isNotEmpty) {
               batch.add({
-                'id': contact.id,
-                'name': contact.displayName,
+                'id': contact.id ?? '',
+                'name': contact.displayName ?? '',
                 'phone': contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
               });
             }

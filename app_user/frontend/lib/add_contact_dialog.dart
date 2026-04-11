@@ -73,11 +73,13 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
     }
 
     try {
-      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      final contacts = await FlutterContacts.getAll(
+        properties: {ContactProperty.phone, ContactProperty.name},
+      );
       // Filter to contacts that have at least one phone number
       final withPhone = contacts.where((c) => c.phones.isNotEmpty).toList();
       // Sort alphabetically
-      withPhone.sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+      withPhone.sort((a, b) => (a.displayName ?? '').toLowerCase().compareTo((b.displayName ?? '').toLowerCase()));
 
       if (mounted) {
         setState(() {
@@ -105,7 +107,7 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
     final q = query.toLowerCase();
     setState(() {
       _filteredContacts = _phoneContacts.where((c) {
-        final nameMatch = c.displayName.toLowerCase().contains(q);
+        final nameMatch = (c.displayName ?? '').toLowerCase().contains(q);
         final phoneMatch = c.phones.any((p) => p.number.replaceAll(RegExp(r'[^0-9]'), '').contains(q));
         return nameMatch || phoneMatch;
       }).toList();
@@ -113,7 +115,7 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
   }
 
   void _selectPhoneContact(Contact contact) {
-    final name = contact.displayName;
+    final name = contact.displayName ?? '';
     final phone = contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), '');
 
     // Detect country code from phone number
@@ -201,8 +203,8 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
         if (contact.phones.isNotEmpty) {
           final phone = contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), '');
           batch.add({
-            'id': contact.id,
-            'name': contact.displayName,
+            'id': contact.id ?? '',
+            'name': contact.displayName ?? '',
             'phone': phone,
           });
         }
@@ -491,8 +493,8 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
                     final phone = contact.phones.isNotEmpty
                         ? contact.phones.first.number
                         : '';
-                    final initial = contact.displayName.isNotEmpty
-                        ? contact.displayName[0].toUpperCase()
+                    final initial = (contact.displayName ?? '').isNotEmpty
+                        ? contact.displayName![0].toUpperCase()
                         : '?';
 
                     return Material(
@@ -506,7 +508,7 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
                             children: [
                               CircleAvatar(
                                 radius: 20,
-                                backgroundColor: AppColors.avatarColor(contact.displayName),
+                                backgroundColor: AppColors.avatarColor(contact.displayName ?? ''),
                                 child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                               ),
                               const SizedBox(width: 12),
@@ -515,7 +517,7 @@ class _AddContactDialogState extends State<AddContactDialog> with SingleTickerPr
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      contact.displayName,
+                                      contact.displayName ?? '',
                                       style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 14), fontWeight: FontWeight.w600),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
