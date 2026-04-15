@@ -24,6 +24,9 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    if (!kIsWeb) {
+      await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+    }
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }

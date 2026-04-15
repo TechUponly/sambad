@@ -252,7 +252,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildEmptyState() {
     return Expanded(
       child: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: Responsive.paddingAll(context, 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -872,8 +872,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Container(
       decoration: BoxDecoration(color: AppColors.of(context).card, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, -2))]),
       child: SafeArea(
-        child: SizedBox(
-          height: Responsive.size(context, 65),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: Platform.isIOS ? 0 : Responsive.vertical(context, 8)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -900,11 +900,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               padding: Responsive.paddingSymmetric(context, v: 8),
               decoration: isSelected ? const BoxDecoration(border: Border(top: BorderSide(color: AppColors.primaryBlue, width: 2))) : null,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, size: Responsive.size(context, 24)),
                   SizedBox(height: Responsive.vertical(context, 4)),
-                  Text(label, style: TextStyle(color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, fontSize: Responsive.fontSize(context, 11), fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+                  Flexible(child: Text(label, style: TextStyle(color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, fontSize: Responsive.fontSize(context, 11), fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 ],
               ),
             ),
