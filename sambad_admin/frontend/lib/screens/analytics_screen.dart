@@ -208,6 +208,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Engagement Metrics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('(Simulated trend — real time-series data pending)', style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 220,
@@ -215,6 +216,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       LineChartData(
                         lineBarsData: [
                           LineChartBarData(
+                            // TODO: Replace with real daily active user counts from backend
                             spots: [
                               FlSpot(0, totalUsers * 0.1),
                               FlSpot(1, totalUsers * 0.25),

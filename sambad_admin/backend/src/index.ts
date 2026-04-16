@@ -14,8 +14,59 @@ import { seedDefaultAdmin } from './seed';
 const USER_BACKEND = process.env.USER_BACKEND_URL || 'http://localhost:4000/api';
 
 const app = express();
-app.use(cors());
+
+// CORS: restrict to known origins in production
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:5050', 'https://web.uponlytech.com'];
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
+
+// ============================================
+// RATE LIMITING (login endpoint)
+// ============================================
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX = 5; // max 5 attempts per window
+
+function loginRateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+
+  if (entry && now < entry.resetAt) {
+    if (entry.count >= RATE_LIMIT_MAX) {
+      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+      return res.status(429).json({
+        error: 'TOO_MANY_REQUESTS',
+        message: `Too many login attempts. Try again in ${retryAfter} seconds.`,
+      });
+    }
+    entry.count++;
+  } else {
+    loginAttempts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  }
+
+  return next();
+}
+
+// Cleanup stale rate limit entries every 30 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of loginAttempts.entries()) {
+    if (now >= entry.resetAt) loginAttempts.delete(key);
+  }
+}, 30 * 60 * 1000);
 
 const PORT = 5050;
 
@@ -29,7 +80,7 @@ app.get('/', (req, res) => {
 // ============================================
 // AUTH ENDPOINTS (public)
 // ============================================
-app.post('/auth/login', loginHandler);
+app.post('/auth/login', loginRateLimiter, loginHandler);
 
 app.get('/auth/me', authMiddleware, (req: AuthenticatedRequest, res) => {
   if (!req.admin) return res.status(401).json({ error: 'Not authenticated' });
@@ -70,7 +121,8 @@ app.post('/auth/change-password', authMiddleware, async (req: AuthenticatedReque
 
     res.json({ message: 'Password changed successfully' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to change password', details: err.message });
+    console.error('Change password failed:', err.message);
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 
@@ -100,7 +152,8 @@ app.get('/admin-users',
       }));
       res.json(safe);
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to fetch admin users', details: err.message });
+      console.error('Fetch admin users failed:', err.message);
+      res.status(500).json({ error: 'Failed to fetch admin users' });
     }
   }
 );
@@ -149,7 +202,8 @@ app.post('/admin-users',
         created_at: saved.created_at,
       });
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to create admin user', details: err.message });
+      console.error('Create admin user failed:', err.message);
+      res.status(500).json({ error: 'Failed to create admin user' });
     }
   }
 );
@@ -191,7 +245,8 @@ app.put('/admin-users/:id',
         is_active: admin.is_active,
       });
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to update admin user', details: err.message });
+      console.error('Update admin user failed:', err.message);
+      res.status(500).json({ error: 'Failed to update admin user' });
     }
   }
 );
@@ -227,7 +282,8 @@ app.delete('/admin-users/:id',
 
       res.json({ message: 'Admin user deleted' });
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to delete admin user', details: err.message });
+      console.error('Delete admin user failed:', err.message);
+      res.status(500).json({ error: 'Failed to delete admin user' });
     }
   }
 );
@@ -267,7 +323,8 @@ app.get('/analytics', authMiddleware, async (req, res) => {
     res.json({ totalUsers, newUsers, activeUsers, inactiveUsers, growth, totalMessages, totalContacts });
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ error: 'Failed to fetch analytics', details: err.message });
+    console.error('Analytics fetch failed:', err.message);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
 
@@ -277,7 +334,8 @@ app.get('/activity', authMiddleware, async (req, res) => {
     res.json(activityRes.data);
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ error: 'Failed to fetch activity', details: err.message });
+    console.error('Activity fetch failed:', err.message);
+    res.status(500).json({ error: 'Failed to fetch activity' });
   }
 });
 
@@ -306,7 +364,8 @@ app.get('/users', authMiddleware, async (req, res) => {
     res.json(transformedUsers);
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ error: 'Failed to fetch users', details: err.message });
+    console.error('Users fetch failed:', err.message);
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
@@ -322,28 +381,21 @@ app.put('/users/:id/status',
       res.json(result.data);
     } catch (e) {
       const err = e as Error;
-      res.status(500).json({ error: 'Failed to update user status', details: err.message });
+      console.error('User status update failed:', err.message);
+      res.status(500).json({ error: 'Failed to update user status' });
     }
   }
 );
 
-app.get('/messages', authMiddleware, async (req, res) => {
+// ── Online users proxy ──────────────────────────────────
+app.get('/online', authMiddleware, async (req, res) => {
   try {
-    const messagesRes = await axios.get(`${USER_BACKEND}/admin/analytics`);
-    res.json(messagesRes.data);
+    const onlineRes = await axios.get(`${USER_BACKEND}/admin/online`);
+    res.json(onlineRes.data);
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ error: 'Failed to fetch messages', details: err.message });
-  }
-});
-
-app.get('/contacts', authMiddleware, async (req, res) => {
-  try {
-    const contactsRes = await axios.get(`${USER_BACKEND}/admin/activity`);
-    res.json(contactsRes.data);
-  } catch (e) {
-    const err = e as Error;
-    res.status(500).json({ error: 'Failed to fetch contacts', details: err.message });
+    console.error('Online users fetch failed:', err.message);
+    res.status(500).json({ error: 'Failed to fetch online users' });
   }
 });
 
@@ -354,7 +406,8 @@ app.get('/feedback', authMiddleware, async (req, res) => {
     res.json(fbRes.data);
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ error: 'Failed to fetch feedback', details: err.message });
+    console.error('Feedback fetch failed:', err.message);
+    res.status(500).json({ error: 'Failed to fetch feedback' });
   }
 });
 
@@ -364,7 +417,8 @@ app.put('/feedback/:id', authMiddleware, async (req, res) => {
     res.json(fbRes.data);
   } catch (e) {
     const err = e as Error;
-    res.status(500).json({ error: 'Failed to update feedback', details: err.message });
+    console.error('Feedback update failed:', err.message);
+    res.status(500).json({ error: 'Failed to update feedback' });
   }
 });
 
@@ -384,9 +438,9 @@ app.post('/notifications/send',
       res.json(response.data);
     } catch (e) {
       const err = e as any;
+      console.error('Notification send failed:', err.response?.data || err.message);
       res.status(err.response?.status || 500).json({
         error: 'Failed to send notification',
-        details: err.response?.data || err.message
       });
     }
   }
@@ -398,9 +452,9 @@ app.get('/notifications', authMiddleware, async (req, res) => {
     res.json(response.data);
   } catch (e) {
     const err = e as any;
+    console.error('Notification fetch failed:', err.response?.data || err.message);
     res.status(err.response?.status || 500).json({
       error: 'Failed to fetch notifications',
-      details: err.response?.data || err.message
     });
   }
 });
@@ -431,7 +485,8 @@ app.get('/audit-logs',
         admin_username: l.admin_user?.username || 'Unknown',
       })));
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to fetch audit logs', details: err.message });
+      console.error('Audit logs fetch failed:', err.message);
+      res.status(500).json({ error: 'Failed to fetch audit logs' });
     }
   }
 );
@@ -450,7 +505,8 @@ app.get('/settings',
       const settings = await repo.find();
       res.json(settings);
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to fetch settings', details: err.message });
+      console.error('Settings fetch failed:', err.message);
+      res.status(500).json({ error: 'Failed to fetch settings' });
     }
   }
 );
@@ -473,7 +529,8 @@ app.put('/settings/:key',
       await logAction(ds, req.admin!.id, 'UPDATE_SETTING', 'setting', key, { value: req.body.value });
       res.json(setting);
     } catch (err: any) {
-      res.status(500).json({ error: 'Failed to update setting', details: err.message });
+      console.error('Setting update failed:', err.message);
+      res.status(500).json({ error: 'Failed to update setting' });
     }
   }
 );

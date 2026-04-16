@@ -180,6 +180,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
 
     if (item.type == 'text') {
+      final ctrl = TextEditingController(text: _settings[item.key]?.toString() ?? '');
       return Card(
         elevation: 2,
         margin: const EdgeInsets.only(bottom: 8),
@@ -194,16 +195,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
               Text(item.description, style: theme.textTheme.bodySmall),
               const SizedBox(height: 12),
               TextFormField(
-                initialValue: _settings[item.key]?.toString() ?? '',
+                controller: ctrl,
                 maxLines: 3,
                 onFieldSubmitted: (v) => _saveSetting(item.key, v),
                 decoration: InputDecoration(
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.save),
-                    onPressed: () {
-                      // Will be triggered from onFieldSubmitted or manually
-                    },
+                    tooltip: 'Save',
+                    onPressed: () => _saveSetting(item.key, ctrl.text),
                   ),
                 ),
               ),

@@ -87,6 +87,14 @@ class ApiService {
     return response.data;
   }
 
+  // ── Online Users ──
+  Future<List<String>> fetchOnlineUsers() async {
+    final response = await _dio.get('$baseUrl/online');
+    final data = response.data as Map<String, dynamic>;
+    final ids = data['onlineUserIds'] as List<dynamic>? ?? [];
+    return ids.map((e) => e.toString()).toList();
+  }
+
   // ── Admin Users (RBAC management) ──
   Future<List<dynamic>> fetchAdminUsers() async {
     final response = await _dio.get('$baseUrl/admin-users');

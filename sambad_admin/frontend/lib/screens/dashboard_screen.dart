@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'sidebar_button.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
-import 'settings_screen.dart';
 import 'config_screen.dart';
 import 'rights_screen.dart';
 import 'audit_screen.dart';
@@ -163,8 +162,7 @@ class _DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<_DashboardContent> {
   late Future<Map<String, dynamic>> _analyticsFuture;
   late Future<List<dynamic>> _activityFuture;
-  String selectedCountry = 'India';
-  final List<String> countries = ['India', 'USA', 'UK', 'Germany', 'Australia'];
+  int _onlineCount = 0;
 
   // Real-time event state
   List<dynamic> _liveActivity = [];
@@ -175,9 +173,14 @@ class _DashboardContentState extends State<_DashboardContent> {
     super.initState();
     _analyticsFuture = ApiService().fetchDashboardAnalytics();
     _activityFuture = ApiService().fetchRecentActivity();
+    _fetchOnlineCount();
     // Connect to WebSocket for real-time updates
+    final wsUrl = ApiService.baseUrl
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://')
+        .replaceFirst('/sambad-admin-backend', '/sambad-backend');
     AdminWebSocket().connect(
-      url: 'wss://web.uponlytech.com/sambad-backend',
+      url: wsUrl,
       onEvent: (event) {
         if (event['type'] == 'contact_added') {
           setState(() {
@@ -197,6 +200,15 @@ class _DashboardContentState extends State<_DashboardContent> {
         // Optionally update analytics if event includes new stats
       },
     );
+  }
+
+  Future<void> _fetchOnlineCount() async {
+    try {
+      final ids = await ApiService().fetchOnlineUsers();
+      if (mounted) setState(() => _onlineCount = ids.length);
+    } catch (_) {
+      // Silently fail — online count is non-critical
+    }
   }
 
   @override
@@ -224,23 +236,6 @@ class _DashboardContentState extends State<_DashboardContent> {
                   ),
                 ],
               ),
-              // Country filter dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButton<String>(
-                  value: selectedCountry,
-                  underline: const SizedBox.shrink(),
-                  icon: const Icon(Icons.arrow_drop_down),
-                  style: theme.textTheme.titleMedium,
-                  dropdownColor: theme.colorScheme.surface,
-                  onChanged: (val) => setState(() => selectedCountry = val!),
-                  items: countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                ),
-              ),
               CircleAvatar(
                 radius: 28,
                 backgroundColor: theme.colorScheme.secondary,
@@ -255,7 +250,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               } else if (snapshot.hasError) {
-                return Center(child: Text('Failed to load analytics: \\${snapshot.error}'));
+                return Center(child: Text('Failed to load analytics: ${snapshot.error}'));
               } else if (!snapshot.hasData) {
                 return const Center(child: Text('No analytics data.'));
               }
@@ -293,6 +288,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                     value: data['inactiveUsers']?.toString() ?? '-',
                     color: Colors.redAccent,
                   ),
+                  _StatCard(
+                    icon: Icons.wifi,
+                    label: 'Online Now',
+                    value: _onlineCount.toString(),
+                    color: Colors.teal,
+                  ),
                 ],
               );
             },
@@ -317,7 +318,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     } else if (snapshot.hasError) {
-                      return Center(child: Text('Failed to load activity: \\${snapshot.error}'));
+                      return Center(child: Text('Failed to load activity: ${snapshot.error}'));
                     } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Center(child: Text('No recent activity.'));
                     }
@@ -365,7 +366,7 @@ class _UsersContentState extends State<_UsersContent> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return Center(child: Text('Failed to load users: \\${snapshot.error}'));
+          return Center(child: Text('Failed to load users: ${snapshot.error}'));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No users found.'));
         }
@@ -534,12 +535,14 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                           Icon(Icons.timeline, color: Colors.blueAccent, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Activity Score: ', style: theme.textTheme.bodySmall),
-                                          Text('${((user['active'] ?? false) ? 87 : 42)}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          // TODO: Replace with real per-user activity score from backend
+                                          Text('N/A', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 18),
                                           Icon(Icons.group, color: Colors.green, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Connections: ', style: theme.textTheme.bodySmall),
-                                          Text('${(user['active'] ?? false) ? 24 : 7}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          // TODO: Replace with real contacts count from backend
+                                          Text('N/A', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
@@ -548,7 +551,8 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                           Icon(Icons.chat_bubble, color: Colors.deepPurple, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Chats: ', style: theme.textTheme.bodySmall),
-                                          Text('${(user['active'] ?? false) ? 132 : 12}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          // TODO: Replace with real messages count from backend
+                                          Text('N/A', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 18),
                                           Icon(Icons.location_on, color: Colors.redAccent, size: 18),
                                           const SizedBox(width: 6),

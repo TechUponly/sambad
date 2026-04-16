@@ -9,7 +9,12 @@ export interface AuthenticatedRequest extends Request {
   admin?: AdminUser;
 }
 
-const JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'dev-admin-secret';
+const JWT_SECRET = process.env.ADMIN_JWT_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('ADMIN_JWT_SECRET must be set in production');
+  }
+  return 'dev-admin-secret';
+})();
 
 export async function initAdminDataSource() {
   try {
