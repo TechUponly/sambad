@@ -37,6 +37,7 @@ class AppConfig {
       return 'ws://$_localHost:$_localPort/ws';
     }
     // Production: replace https with wss
-    return _prodBackend.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://') + '/ws';
+    //return _prodBackend.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://') + '/ws';
+    return 'ws://web.uponlytech.com:4000/ws';
   }
 }
