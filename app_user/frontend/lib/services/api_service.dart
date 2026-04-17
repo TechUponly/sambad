@@ -1,19 +1,41 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../config/app_config.dart';
 
 class ApiService {
   static String get baseUrl => AppConfig.apiBase;
-  
   final Dio _dio;
 
   ApiService() : _dio = Dio() {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('firebase_token');
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
+        try {
+          // Always get fresh token from Firebase
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            final token = await user.getIdToken(true); // force refresh
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+              // Save fresh token
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('firebase_token', token);
+            }
+          } else {
+            // Fallback to saved token
+            final prefs = await SharedPreferences.getInstance();
+            final token = prefs.getString('firebase_token');
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          }
+        } catch (e) {
+          // Fallback to saved token if refresh fails
+          final prefs = await SharedPreferences.getInstance();
+          final token = prefs.getString('firebase_token');
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
         }
         return handler.next(options);
       },
