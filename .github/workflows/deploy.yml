@@ -1,7 +1,7 @@
 name: Deploy Sambad Backend
 on:
   push:
-    branches: [samvad]
+    branches: [main, samvad]
   workflow_dispatch:
 jobs:
   deploy-backend:
@@ -17,51 +17,16 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           script: |
-            echo "=== PRE-DEPLOY DIAGNOSTICS ==="
             cd /var/www/html/public_html/sambad
-            echo "Git branch:"
-            git branch --show-current
-            echo "Git status:"
-            git status --short | head -20
-            echo "=== PULLING ==="
-            git stash
             git pull origin samvad
-            git stash pop || true
-            echo "=== POST-PULL: Check feedback route exists ==="
-            grep -c "feedback" app_user/backend/src/admin-routes.ts || echo "FEEDBACK NOT FOUND IN SOURCE!"
             echo "🚀 Deploying user backend..."
             cd /var/www/html/public_html/sambad/app_user/backend
             npm install
-            npm run build 2>&1 | tail -5
-            echo "=== Check dist has feedback ==="
-            grep -c "feedback" dist/admin-routes.js || echo "FEEDBACK NOT IN DIST!"
-            echo "=== PM2 process info ==="
-            pm2 describe sambad-backend | head -20
+            npm run build
             pm2 restart sambad-backend
             echo "🚀 Deploying admin backend..."
             cd /var/www/html/public_html/sambad/sambad_admin/backend
             npm install
             pm2 restart sambad-admin-backend
             pm2 save
-            echo "=== Configure nginx WebSocket support ==="
-            # Add WebSocket proxy support if not already present
-            if ! grep -q "proxy_set_header Upgrade" /etc/nginx/sites-available/default 2>/dev/null; then
-              echo "Adding WebSocket proxy config to nginx..."
-              sudo sed -i '/location \/sambad-backend/,/}/ {
-                /proxy_pass/ a\
-                    proxy_http_version 1.1;\
-                    proxy_set_header Upgrade \$http_upgrade;\
-                    proxy_set_header Connection "upgrade";\
-                    proxy_set_header Host \$host;\
-                    proxy_read_timeout 86400;
-              }' /etc/nginx/sites-available/default
-              sudo nginx -t && sudo systemctl reload nginx
-              echo "✅ Nginx WebSocket config added"
-            else
-              echo "✅ Nginx WebSocket config already present"
-            fi
-            echo "=== POST-DEPLOY: Test feedback endpoint ==="
-            sleep 3
-            curl -s http://localhost:4000/api/admin/feedback | head -c 200 || echo "FEEDBACK ENDPOINT FAILED!"
-            echo ""
             echo "✅ All backends deployed successfully!"
