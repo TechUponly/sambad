@@ -14,7 +14,7 @@ plugins {
 }
 
 android {
-    namespace = "com.sambad.privatesambad"
+    namespace = "com.shamrai.sambad"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -43,7 +43,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.sambad.privatesambad"
+        applicationId = "com.shamrai.sambad"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
