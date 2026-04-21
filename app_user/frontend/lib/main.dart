@@ -30,7 +30,9 @@ Future<void> main() async {
   // Initialize Firebase App Check
   try {
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.debug,
+      androidProvider: kReleaseMode
+          ? AndroidProvider.playIntegrity
+          : AndroidProvider.debug,
     );
     debugPrint('Firebase App Check activated');
   } catch (e) {
