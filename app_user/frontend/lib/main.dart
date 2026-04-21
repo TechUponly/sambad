@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:provider/provider.dart';
 import 'package:screen_protector/screen_protector.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,18 +24,6 @@ Future<void> main() async {
     );
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
-  }
-
-  // Initialize Firebase App Check
-  try {
-    await FirebaseAppCheck.instance.activate(
-      androidProvider: kReleaseMode
-          ? AndroidProvider.playIntegrity
-          : AndroidProvider.debug,
-    );
-    debugPrint('Firebase App Check activated');
-  } catch (e) {
-    debugPrint('Firebase App Check error: $e');
   }
 
   if (!kIsWeb) {
