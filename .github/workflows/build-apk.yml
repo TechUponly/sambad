@@ -58,7 +58,7 @@ jobs:
 
       - name: Build APK (release)
         working-directory: ./app_user/frontend
-        run: flutter build apk --release
+        run: flutter build apk --debug
 
       - name: Build AAB (release)
         working-directory: ./app_user/frontend
