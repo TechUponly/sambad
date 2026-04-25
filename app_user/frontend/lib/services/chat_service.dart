@@ -1,10 +1,14 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show WebSocket;
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../config/app_config.dart';
 import '../models/contact.dart';
 import '../models/message.dart';
 import 'api_service.dart';
@@ -14,6 +18,42 @@ import 'api_service.dart';
 
 class ChatService extends ChangeNotifier {
 
+  /// Normalize a phone number to a consistent format.
+  /// Strips all non-digit chars except leading +. Ensures country code prefix.
+  static String normalizePhone(String phone, {String defaultCode = '+91'}) {
+    String cleaned = phone.trim();
+    // If it starts with +, keep digits after +
+    if (cleaned.startsWith('+')) {
+      final digits = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+      return '+$digits';
+    }
+    // Strip everything non-digit
+    cleaned = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.isEmpty) return '';
+    // If 10 digits, add default country code
+    if (cleaned.length == 10) {
+      final codeDigits = defaultCode.replaceAll(RegExp(r'[^\d]'), '');
+      return '+$codeDigits$cleaned';
+    }
+    // If longer than 10, assume it has country code
+    if (cleaned.length > 10) {
+      return '+$cleaned';
+    }
+    // Short number — return as-is with +
+    return '+$cleaned';
+  }
+
+  /// Check if two phone numbers are the same (last 10 digits match)
+  static bool phonesMatch(String a, String b) {
+    final aDigits = a.replaceAll(RegExp(r'[^\d]'), '');
+    final bDigits = b.replaceAll(RegExp(r'[^\d]'), '');
+    if (aDigits.length >= 10 && bDigits.length >= 10) {
+      return aDigits.substring(aDigits.length - 10) == bDigits.substring(bDigits.length - 10);
+    }
+    return aDigits == bDigits;
+  }
+
+
     Future<void> blockContact(String contactId) async {
       if (!_blockedContacts.contains(contactId)) {
         _blockedContacts.add(contactId);
@@ -22,6 +62,11 @@ class ChatService extends ChangeNotifier {
         notifyListeners();
       }
     }
+  // WebSocket for real-time messaging
+  WebSocket? _ws;
+  Timer? _wsReconnectTimer;
+  bool _wsConnecting = false;
+  String? _currentUserId;
   // Inactivity timer for auto-clear
   Timer? _inactivityTimer;
   // AES-GCM for strong encryption
@@ -29,7 +74,32 @@ class ChatService extends ChangeNotifier {
   SecretKey? _secretKey;
   // Cached admin settings
   Map<String, dynamic>? _adminSettings;
-  final String _adminApiBase = 'https://admin.sambad.com/api';
+  final String _adminApiBase = AppConfig.adminBase;
+
+  // Cached app config (invite text, etc.) — fetched from backend
+  Map<String, dynamic> _appConfig = {};
+
+  /// The invite text to share — from backend or hardcoded fallback
+  String get inviteText => _appConfig['invite_text'] as String? ??
+      '🔒 *Private Samvad* — India\'s Secure Messaging App!\n\n'
+      '✅ End-to-end private chats\n'
+      '✅ Auto-delete messages\n'
+      '✅ No data stored on servers\n'
+      '✅ Group messaging\n\n'
+      '📲 Download now:\n'
+      '▶ Android: https://play.google.com/store/apps/details?id=com.shamrai.sambad\n'
+      '🍎 iOS: https://apps.apple.com/app/private-samvad/id6744640580\n\n'
+      'Join me on Private Samvad! 🚀';
+
+  /// Get auth headers for all HTTP calls
+  Future<Map<String, String>> _authHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('firebase_token');
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   /// Push a message or user activity to the admin portal for audit/sync
   Future<void> syncToAdminPortal({String? event, Map<String, dynamic>? data}) async {
@@ -40,7 +110,8 @@ class ChatService extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
         'data': data ?? {},
       };
-      final resp = await http.post(uri, body: jsonEncode(payload), headers: {'Content-Type': 'application/json'});
+      final headers = await _authHeaders();
+      final resp = await http.post(uri, body: jsonEncode(payload), headers: headers);
       if (resp.statusCode == 200) {
         debugPrint('[AdminSync] Synced event: $event');
       } else {
@@ -55,16 +126,63 @@ class ChatService extends ChangeNotifier {
   Future<void> fetchAdminSettings() async {
     try {
       final uri = Uri.parse('$_adminApiBase/settings');
-      final resp = await http.get(uri);
+      final headers = await _authHeaders();
+      final resp = await http.get(uri, headers: headers);
       if (resp.statusCode == 200) {
         _adminSettings = jsonDecode(resp.body) as Map<String, dynamic>;
         debugPrint('[AdminSync] Admin settings loaded: $_adminSettings');
-        // TODO: Apply settings to local config (encryption, timeouts, etc.)
       } else {
         debugPrint('[AdminSync] Failed to fetch settings: ${resp.statusCode}');
       }
     } catch (e) {
       debugPrint('[AdminSync] Error fetching settings: $e');
+    }
+  }
+
+  /// Fetch app config (invite text, links, etc.) from the user backend
+  Future<void> fetchAppConfig() async {
+    try {
+      final uri = Uri.parse('${AppConfig.apiBase}/app-config');
+      final resp = await http.get(uri, headers: {'Content-Type': 'application/json'});
+      if (resp.statusCode == 200) {
+        _appConfig = jsonDecode(resp.body) as Map<String, dynamic>;
+        debugPrint('[AppConfig] Loaded: ${_appConfig.keys.toList()}');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[AppConfig] Error fetching config: $e');
+    }
+  }
+
+  /// Register FCM token with backend for push notifications
+  Future<void> registerFcmToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('current_user_id');
+      if (userId == null || userId.isEmpty) {
+        debugPrint('[FCM] No user ID — skipping token registration');
+        return;
+      }
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) {
+        debugPrint('[FCM] Could not get FCM token');
+        return;
+      }
+      debugPrint('[FCM] Token: ${token.substring(0, 20)}...');
+      final uri = Uri.parse('${AppConfig.apiBase}/users/fcm-token');
+      final headers = await _authHeaders();
+      final resp = await http.post(
+        uri,
+        body: jsonEncode({'userId': userId, 'fcm_token': token}),
+        headers: headers,
+      );
+      if (resp.statusCode == 200) {
+        debugPrint('[FCM] Token registered successfully');
+      } else {
+        debugPrint('[FCM] Token registration failed: ${resp.statusCode} ${resp.body}');
+      }
+    } catch (e) {
+      debugPrint('[FCM] Error registering token: $e');
     }
   }
 
@@ -99,15 +217,16 @@ class ChatService extends ChangeNotifier {
   final String privateConversationId = 'private';
 
   String? _currentUserPhone;
-  String? _currentUserId;
-  
-  Future<void> loginUser(String phone) async {
+  Future<void> loginUser(String phone, {String? name}) async {
     try {
+      final body = <String, dynamic>{'phone': phone};
+      if (name != null && name.isNotEmpty) body['name'] = name;
+      
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:4000/api/users/login'),
+        Uri.parse('${AppConfig.apiBase}/users/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phone': phone}),
-      );
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 15));
       
       if (response.statusCode == 200) {
         final userData = jsonDecode(response.body);
@@ -118,13 +237,419 @@ class ChatService extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('current_user_phone', phone);
         await prefs.setString('current_user_id', userData['id']);
+        if (userData['name'] != null) {
+          await prefs.setString('current_user_name', userData['name']);
+        }
         
-        debugPrint('[ChatService] Logged in as: $phone (${userData['id']})');
+        debugPrint('[ChatService] Logged in as: $phone (${userData['id']}) name: ${userData['name']}');
+        
+        // Connect WebSocket for real-time messages
+        _connectWebSocket();
+        
+        // Fetch any messages received while offline
+        Future.delayed(const Duration(seconds: 2), () => fetchUndeliveredMessages());
       }
+    } on TimeoutException {
+      debugPrint('[ChatService] Login timeout after 15s');
     } catch (e) {
       debugPrint('[ChatService] Login error: $e');
     }
+    // Fallback: if backend login failed, use Firebase UID or phone as userId
+    if (_currentUserId == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final savedId = prefs.getString('current_user_id');
+      final fbUser = FirebaseAuth.instance.currentUser;
+      _currentUserId = savedId ?? fbUser?.uid ?? phone;
+      if (_currentUserId != null) {
+        await prefs.setString('current_user_id', _currentUserId!);
+        debugPrint('[ChatService] Using fallback userId: $_currentUserId');
+      }
+    }
   }
+
+  /// Connect to backend WebSocket for real-time message delivery
+  Future<void> _connectWebSocket() async {
+    if (_wsConnecting || _currentUserId == null) return;
+    _wsConnecting = true;
+    _wsReconnectTimer?.cancel();
+
+    try {
+      final wsUrl = '${AppConfig.wsBase}?userId=$_currentUserId';
+      debugPrint('[WS] Connecting to $wsUrl');
+      _ws = await WebSocket.connect(wsUrl).timeout(const Duration(seconds: 10));
+      debugPrint('[WS] Connected');
+
+      // Register user
+      _ws!.add(jsonEncode({'type': 'register', 'userId': _currentUserId}));
+
+      // Listen for incoming messages
+      _ws!.listen(
+        (data) {
+          try {
+            final msg = jsonDecode(data.toString());
+            _handleWsMessage(msg);
+          } catch (e) {
+            debugPrint('[WS] Parse error: $e');
+          }
+        },
+        onDone: () {
+          debugPrint('[WS] Disconnected, will reconnect in 3s');
+          _ws = null;
+          _wsConnecting = false;
+          _scheduleWsReconnect();
+        },
+        onError: (e) {
+          debugPrint('[WS] Error: $e');
+          _ws = null;
+          _wsConnecting = false;
+          _scheduleWsReconnect();
+        },
+      );
+    } catch (e) {
+      debugPrint('[WS] Connection failed: $e');
+      _wsConnecting = false;
+      _scheduleWsReconnect();
+      return;
+    }
+    _wsConnecting = false;
+  }
+
+  void _scheduleWsReconnect() {
+    _wsReconnectTimer?.cancel();
+    _wsReconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (_currentUserId != null) _connectWebSocket();
+    });
+  }
+
+  void _handleWsMessage(Map<String, dynamic> msg) {
+    final type = msg['type'] as String?;
+    final data = msg['data'];
+
+    if (type == 'new_message' && data != null) {
+      // Incoming message from another user
+      final fromId = data['fromId'] ?? data['from'] ?? '';
+      final fromPhone = (data['fromPhone'] ?? '') as String;
+      final message = Message(
+        id: data['id'] ?? '',
+        from: fromId,
+        text: data['content'] ?? data['text'] ?? '',
+        timestamp: data['timestamp'] is int
+            ? data['timestamp']
+            : DateTime.tryParse(data['timestamp']?.toString() ?? '')
+                  ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+      );
+
+      // Find the matching contact to use the same conversation key as ChatPage
+      // ChatPage uses contact.phone as _contactId, so we must store under the
+      // sender's phone number (not their UUID) for messages to appear.
+      String contactId = fromId; // fallback to UUID
+      if (fromPhone.isNotEmpty) {
+        // Try to find a local contact whose phone matches the sender
+        Contact? matchingContact;
+        for (final c in _contacts) {
+          if (c.phone == fromPhone) {
+            matchingContact = c;
+            break;
+          }
+          // Also try last-10-digit matching for country code differences
+          final cDigits = c.phone.replaceAll(RegExp(r'[^\d]'), '');
+          final fpDigits = fromPhone.replaceAll(RegExp(r'[^\d]'), '');
+          if (cDigits.length >= 10 && fpDigits.length >= 10 &&
+              cDigits.substring(cDigits.length - 10) == fpDigits.substring(fpDigits.length - 10)) {
+            matchingContact = c;
+            break;
+          }
+        }
+        contactId = matchingContact?.phone ?? fromPhone;
+      }
+
+      if (!_messages.containsKey(contactId)) {
+        _messages[contactId] = [];
+      }
+      // Avoid duplicates
+      if (!_messages[contactId]!.any((m) => m.id == message.id)) {
+        _messages[contactId]!.add(message);
+        debugPrint('[WS] Received message from $contactId: ${message.text}');
+        _saveMessages(); // Persist to disk
+        notifyListeners();
+        
+        // Mark as delivered on the backend
+        _markMessageDelivered(data['id'] ?? '');
+      }
+    } else if (type == 'message_delivered' && data != null) {
+      final msgId = data['messageId'] as String? ?? '';
+      if (msgId.isNotEmpty) {
+        _updateLocalMessageStatus(msgId, 'delivered');
+        debugPrint('[WS] message_delivered: $msgId');
+      }
+    } else if (type == 'message_read' && data != null) {
+      final msgId = data['messageId'] as String? ?? '';
+      if (msgId.isNotEmpty) {
+        _updateLocalMessageStatus(msgId, 'read');
+        debugPrint('[WS] message_read: $msgId');
+      }
+    } else if (type == 'user_online' && data != null) {
+      final uid = data['userId'] as String? ?? '';
+      if (uid.isNotEmpty) {
+        _onlineUsers.add(uid);
+        notifyListeners();
+      }
+    } else if (type == 'user_offline' && data != null) {
+      final uid = data['userId'] as String? ?? '';
+      _onlineUsers.remove(uid);
+      notifyListeners();
+    } else if (type == 'typing' && data != null) {
+      final from = data['from'] as String? ?? '';
+      if (from.isNotEmpty) {
+        _typingUsers.add(from);
+        _typingTimers[from]?.cancel();
+        _typingTimers[from] = Timer(const Duration(seconds: 3), () {
+          _typingUsers.remove(from);
+          _typingTimers.remove(from);
+          notifyListeners();
+        });
+        notifyListeners();
+      }
+    } else if (type == 'stop_typing' && data != null) {
+      final from = data['from'] as String? ?? '';
+      _typingUsers.remove(from);
+      _typingTimers[from]?.cancel();
+      _typingTimers.remove(from);
+      notifyListeners();
+    } else if (type == 'group_message' && data != null) {
+      // Incoming group message
+      final groupId = data['groupId']?.toString() ?? '';
+      final fromId = data['fromId'] ?? data['from'] ?? '';
+      final fromName = data['fromName'] ?? 'Unknown';
+      final content = data['content'] ?? data['text'] ?? '';
+      
+      // Skip messages from self
+      if (fromId == _currentUserId) return;
+      
+      // Find group name by server ID
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) {
+          groupName = entry.key;
+          break;
+        }
+      }
+      if (groupName == null) {
+        debugPrint('[WS] group_message for unknown group: $groupId');
+        return;
+      }
+      
+      final conversationKey = groupIdForName(groupName);
+      final message = Message(
+        id: data['id']?.toString() ?? '${groupId}_${DateTime.now().millisecondsSinceEpoch}',
+        from: fromName,
+        text: content,
+        timestamp: data['timestamp'] is int
+            ? data['timestamp']
+            : DateTime.tryParse(data['timestamp']?.toString() ?? '')
+                  ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+      );
+      
+      _messages.putIfAbsent(conversationKey, () => []);
+      if (!_messages[conversationKey]!.any((m) => m.id == message.id)) {
+        _messages[conversationKey]!.add(message);
+        debugPrint('[WS] Group message in "$groupName" from $fromName: $content');
+        _saveMessages();
+        notifyListeners();
+      }
+    } else if (type == 'group_added' && data != null) {
+      final groupName = data['groupName']?.toString() ?? '';
+      final groupId = data['groupId']?.toString() ?? '';
+      if (groupName.isNotEmpty && !_groups.contains(groupName)) {
+        _groups.add(groupName);
+        if (groupId.isNotEmpty) _groupServerIds[groupName] = groupId;
+        _groupMembers[groupName] ??= [];
+        _saveGroups();
+        _saveGroupServerIds();
+        notifyListeners();
+        debugPrint('[WS] Added to group: $groupName');
+      }
+    } else if (type == 'group_removed' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null) {
+        removeGroupLocally(groupName);
+        debugPrint('[WS] Removed from group: $groupName');
+      }
+    } else if (type == 'group_updated' && data != null) {
+      debugPrint('[WS] Group updated: ${data['groupId']}');
+      notifyListeners();
+    } else if (type == 'group_deleted' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null) {
+        removeGroupLocally(groupName);
+        debugPrint('[WS] Group deleted: $groupName');
+      }
+    } else if (type == 'group_role_changed' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      final userId = data['userId']?.toString() ?? '';
+      final newRole = data['role']?.toString() ?? 'member';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null && userId.isNotEmpty) {
+        setMemberRole(groupName, userId, newRole);
+        debugPrint('[WS] Role changed in $groupName: $userId → $newRole');
+      }
+    } else if (type == 'member_exited' && data != null) {
+      final groupId = data['groupId']?.toString() ?? '';
+      final userId = data['userId']?.toString() ?? '';
+      String? groupName;
+      for (final entry in _groupServerIds.entries) {
+        if (entry.value == groupId) { groupName = entry.key; break; }
+      }
+      if (groupName != null && userId.isNotEmpty) {
+        removeMemberFromGroup(groupName, userId);
+        debugPrint('[WS] Member $userId exited $groupName');
+      }
+    } else if (type == 'connected') {
+      debugPrint('[WS] Server welcome: ${msg['message'] ?? 'connected'}');
+    } else if (type == 'message_sent') {
+      // Multi-device echo — ignore on same device
+      debugPrint('[WS] message_sent echo');
+    } else {
+      debugPrint('[WS] Unhandled event: $type');
+    }
+  }
+
+  /// Mark a received message as delivered on the backend
+  Future<void> _markMessageDelivered(String messageId) async {
+    if (messageId.isEmpty) return;
+    try {
+      final headers = await _authHeaders();
+      await http.put(
+        Uri.parse('${AppConfig.apiBase}/messages/$messageId/delivered'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 5));
+      debugPrint('[ChatService] Marked message $messageId as delivered');
+    } catch (e) {
+      debugPrint('[ChatService] Failed to mark delivered: $e');
+    }
+  }
+
+  /// Mark messages as read when user opens a chat
+  Future<void> markMessagesAsRead(String contactId) async {
+    final msgs = _messages[contactId] ?? [];
+    final headers = await _authHeaders();
+    for (final msg in msgs) {
+      if (msg.from != 'me' && msg.status != 'read') {
+        try {
+          await http.put(
+            Uri.parse('${AppConfig.apiBase}/messages/${msg.id}/read'),
+            headers: headers,
+          ).timeout(const Duration(seconds: 5));
+        } catch (e) {
+          debugPrint('[ChatService] Failed to mark read: $e');
+        }
+      }
+    }
+  }
+
+  /// Update a local message's status (sent → delivered → read)
+  void _updateLocalMessageStatus(String messageId, String newStatus) {
+    for (final contactId in _messages.keys) {
+      final msgs = _messages[contactId]!;
+      for (int i = 0; i < msgs.length; i++) {
+        if (msgs[i].id == messageId) {
+          msgs[i] = msgs[i].copyWith(status: newStatus);
+          _saveMessages();
+          notifyListeners();
+          return;
+        }
+      }
+    }
+  }
+
+  /// Fetch undelivered messages from backend (for messages received while offline)
+  Future<void> fetchUndeliveredMessages() async {
+    if (_currentUserId == null) return;
+    try {
+      final headers = await _authHeaders();
+      final response = await http.get(
+        Uri.parse('${AppConfig.apiBase}/messages/undelivered/$_currentUserId'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> messages = jsonDecode(response.body);
+        debugPrint('[ChatService] Fetched ${messages.length} undelivered messages');
+        
+        for (final msgData in messages) {
+          final fromId = msgData['fromId'] ?? '';
+          final fromPhone = msgData['fromPhone'] ?? '';
+          
+          // Find matching contact for conversation key
+          String contactId = fromId;
+          if (fromPhone.toString().isNotEmpty) {
+            for (final c in _contacts) {
+              final cDigits = c.phone.replaceAll(RegExp(r'[^\d]'), '');
+              final fpDigits = fromPhone.toString().replaceAll(RegExp(r'[^\d]'), '');
+              if (cDigits.length >= 10 && fpDigits.length >= 10 &&
+                  cDigits.substring(cDigits.length - 10) == fpDigits.substring(fpDigits.length - 10)) {
+                contactId = c.phone;
+                break;
+              }
+            }
+          }
+          
+          final message = Message(
+            id: msgData['id'] ?? '',
+            from: fromId,
+            text: msgData['content'] ?? '',
+            timestamp: DateTime.tryParse(msgData['timestamp']?.toString() ?? '')
+                    ?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
+          );
+          
+          _messages.putIfAbsent(contactId, () => []);
+          if (!_messages[contactId]!.any((m) => m.id == message.id)) {
+            _messages[contactId]!.add(message);
+            _markMessageDelivered(msgData['id'] ?? '');
+          }
+        }
+        
+        if (messages.isNotEmpty) {
+          await _saveMessages();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('[ChatService] Failed to fetch undelivered: $e');
+    }
+  }
+
+  void disconnectWebSocket() {
+    _wsReconnectTimer?.cancel();
+    _ws?.close();
+    _ws = null;
+  }
+
+  /// Send typing indicator to a specific user
+  void sendTypingIndicator(String recipientId) {
+    if (_ws != null) {
+      _ws!.add(jsonEncode({'type': 'typing', 'to': recipientId}));
+    }
+  }
+
+  /// Send stop typing indicator
+  void sendStopTypingIndicator(String recipientId) {
+    if (_ws != null) {
+      _ws!.add(jsonEncode({'type': 'stop_typing', 'to': recipientId}));
+    }
+  }
+
   final int _privateTtlMs = 30 * 60 * 1000; // 30 minutes
   final String _privateSessionKey = 'private_session_last_v1';
   final String _groupsKey = 'chat_groups_v1';
@@ -136,6 +661,17 @@ class ChatService extends ChangeNotifier {
   List<String> _groups = [];
   Map<String, List<String>> _groupMembers = {};
   List<String> _blockedGroups = [];
+  Map<String, String> _groupServerIds = {}; // name → backend UUID
+  Map<String, Map<String, String>> _groupRoles = {}; // groupName → {userId: role}
+
+  // Online & Typing indicators
+  final Set<String> _onlineUsers = {};
+  final Map<String, Timer> _typingTimers = {};
+  final Set<String> _typingUsers = {};
+
+  Set<String> get onlineUsers => _onlineUsers;
+  bool isOnline(String userId) => _onlineUsers.contains(userId);
+  bool isTyping(String userId) => _typingUsers.contains(userId);
   int? _lastPrivateActivity; // millisSinceEpoch of last private chat activity
   // Removed old encrypter fields
   Timer? _cleanupTimer;
@@ -148,7 +684,12 @@ class ChatService extends ChangeNotifier {
     );
     _initKey();
     _resetInactivityTimer();
-    fetchAdminSettings().then((_) => _applyAdminSettings());
+    // Defer non-essential network calls — don't block app startup
+    Future.microtask(() async {
+      await fetchAppConfig();
+      await fetchAdminSettings().then((_) => _applyAdminSettings());
+      await registerFcmToken();
+    });
   }
 
   void _applyAdminSettings() {
@@ -178,7 +719,7 @@ class ChatService extends ChangeNotifier {
   void _resetInactivityTimer() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(
-      const Duration(minutes: 5),
+      const Duration(minutes: 30),
       () async {
         await clearAllMessages(reason: 'inactivity');
       },
@@ -218,6 +759,123 @@ class ChatService extends ChangeNotifier {
   List<String> get groups => _groups;
   Map<String, List<String>> get groupMembers => _groupMembers;
   List<String> get blockedGroups => _blockedGroups;
+  String? get currentUserId => _currentUserId;
+  Map<String, Map<String, String>> get groupRoles => _groupRoles;
+
+  /// Public auth headers for external use (e.g. GroupInfoPage)
+  Future<Map<String, String>> authHeaders() => _authHeaders();
+
+  /// Remove a group from local storage
+  void removeGroupLocally(String name) {
+    _groups.remove(name);
+    _groupMembers.remove(name);
+    _groupServerIds.remove(name);
+    _groupRoles.remove(name);
+    _saveGroups();
+    _saveGroupServerIds();
+    _saveGroupRoles();
+    notifyListeners();
+  }
+
+  Map<String, String> get groupServerIds => _groupServerIds;
+
+  String? serverIdForGroup(String name) => _groupServerIds[name];
+
+  Future<void> _saveGroupServerIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('group_server_ids', jsonEncode(_groupServerIds));
+  }
+
+  Future<void> _loadGroupServerIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('group_server_ids');
+    if (raw != null) {
+      _groupServerIds = Map<String, String>.from(jsonDecode(raw));
+    }
+  }
+
+  // ── Local Group Roles Management ──
+  Future<void> _saveGroupRoles() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('group_roles_v1', jsonEncode(_groupRoles));
+  }
+
+  Future<void> _loadGroupRoles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('group_roles_v1');
+    if (raw != null) {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      _groupRoles = decoded.map((k, v) => MapEntry(k,
+          Map<String, String>.from(v as Map)));
+    }
+  }
+
+  String roleInGroup(String groupName, String userId) {
+    return _groupRoles[groupName]?[userId] ?? 'member';
+  }
+
+  bool isGroupAdmin(String groupName) {
+    if (_currentUserId == null) return false;
+    
+    // Direct match
+    final role = roleInGroup(groupName, _currentUserId!);
+    if (role == 'admin') return true;
+    
+    final roles = _groupRoles[groupName];
+    final members = _groupMembers[groupName] ?? [];
+    
+    // No roles stored at all — creator is admin
+    if (roles == null || roles.isEmpty) return true;
+    
+    // Roles exist but none match current userId (userId changed between sessions)
+    // If user is sole member or no members recorded, they're the creator/admin
+    if (members.isEmpty || members.length <= 1) return true;
+    
+    // Also check if current user's phone matches any admin in the roles
+    if (_currentUserPhone != null) {
+      for (final entry in roles.entries) {
+        if (entry.value == 'admin' && entry.key.contains(_currentUserPhone!.replaceAll('+91', ''))) {
+          return true;
+        }
+      }
+    }
+    
+    debugPrint('[ChatService] isGroupAdmin($groupName): false. userId=$_currentUserId, roles=$roles, members=$members');
+    return false;
+  }
+
+  Map<String, String> rolesForGroup(String groupName) {
+    return _groupRoles[groupName] ?? {};
+  }
+
+  Future<void> setMemberRole(String groupName, String userId, String role) async {
+    _groupRoles[groupName] ??= {};
+    _groupRoles[groupName]![userId] = role;
+    await _saveGroupRoles();
+    notifyListeners();
+  }
+
+  Future<void> addMemberToGroup(String groupName, String userId, {String role = 'member'}) async {
+    // Add to members list
+    _groupMembers[groupName] ??= [];
+    if (!_groupMembers[groupName]!.contains(userId)) {
+      _groupMembers[groupName]!.add(userId);
+    }
+    // Set role
+    _groupRoles[groupName] ??= {};
+    _groupRoles[groupName]![userId] = role;
+    await _saveGroupMembers();
+    await _saveGroupRoles();
+    notifyListeners();
+  }
+
+  Future<void> removeMemberFromGroup(String groupName, String userId) async {
+    _groupMembers[groupName]?.remove(userId);
+    _groupRoles[groupName]?.remove(userId);
+    await _saveGroupMembers();
+    await _saveGroupRoles();
+    notifyListeners();
+  }
 
   List<String> membersForGroup(String name) => _groupMembers[name] ?? const [];
 
@@ -226,18 +884,11 @@ class ChatService extends ChangeNotifier {
   Future<void> init() async {
     debugPrint('[ChatService] Initializing ChatService...');
     final prefs = await SharedPreferences.getInstance();
-    // ensure private key exists
-    String? keyB64 = prefs.getString(_privateKeyPref);
-    if (keyB64 == null) {
-      final newKey = await _cipher.newSecretKey();
-      final newKeyData = await newKey.extractBytes();
-      keyB64 = base64Encode(newKeyData);
-      await prefs.setString(_privateKeyPref, keyB64);
-      _secretKey = newKey;
-    } else {
-      final keyBytes = base64Decode(keyB64);
-      _secretKey = SecretKey(keyBytes);
-    }
+    // Key init is handled by _initKey() in constructor — just await it
+    await _initKey();
+    
+    // Restore currentUserId from prefs so admin checks work even when backend is down
+    _currentUserId ??= prefs.getString('current_user_id');
     
     // Load local contacts first
     final cJson = prefs.getString(_contactsKey);
@@ -256,10 +907,15 @@ class ChatService extends ChangeNotifier {
     
     // Also fetch contacts from API and merge
     try {
+      final headers = await _authHeaders();
+      final userId = prefs.getString('current_user_id');
+      final uri = userId != null && userId.isNotEmpty
+          ? Uri.parse('${AppConfig.apiBase}/contacts?userId=$userId')
+          : Uri.parse('${AppConfig.apiBase}/contacts');
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:4000/api/contacts'),
-        headers: {'Content-Type': 'application/json'},
-      );
+        uri,
+        headers: headers,
+      ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final List<dynamic> apiContacts = jsonDecode(response.body);
         final Set<String> existingIds = _contacts.map((c) => c.id).toSet();
@@ -269,9 +925,13 @@ class ChatService extends ChangeNotifier {
           if (contactUser != null) {
             final username = contactUser['username'] ?? '';
             final contactId = apiContact['id'] ?? '';
-            // Extract phone number from username (e.g., +919876543210 -> 9876543210)
-            final phone = username.replaceAll(RegExp(r'[^\d]'), '').substring(username.replaceAll(RegExp(r'[^\d]'), '').length - 10);
-            final name = phone; // Use phone as name for now
+            // Extract phone number safely — guard against short strings
+            final digitsOnly = username.replaceAll(RegExp(r'[^\d]'), '');
+            final phone = digitsOnly.length >= 10
+                ? digitsOnly.substring(digitsOnly.length - 10)
+                : digitsOnly;
+            if (phone.isEmpty || contactId.isEmpty) continue;
+            final name = phone;
             
             if (!existingIds.contains(contactId)) {
               _contacts.add(Contact(
@@ -343,6 +1003,8 @@ class ChatService extends ChangeNotifier {
     } else {
       _blockedGroups = [];
     }
+    await _loadGroupServerIds();
+    await _loadGroupRoles();
     if (sessionJson != null) {
       try {
         _lastPrivateActivity = int.parse(sessionJson);
@@ -400,16 +1062,16 @@ class ChatService extends ChangeNotifier {
     // Send message via API for WebSocket sync
     try {
       final prefs = await SharedPreferences.getInstance();
-      String? currentUserId = prefs.getString('current_user_id');
+      String? currentUserId = prefs.getString('current_user_id') ?? _currentUserId;
       
-      if (currentUserId == null) {
-        // Get/create current user (default to 9999999999 for now)
+      if (currentUserId == null && _currentUserPhone != null) {
+        // Get/create current user from stored phone
+        final headers = await _authHeaders();
         final currentUserResponse = await http.post(
-          Uri.parse('http://10.0.2.2:4000/api/users/login'),
-          headers: {'Content-Type': 'application/json'},
+          Uri.parse('${AppConfig.apiBase}/users/login'),
+          headers: headers,
           body: jsonEncode({
-            'mobileNumber': _currentUserPhone ?? '9999999999',
-            'countryCode': '+91',
+            'phone': _currentUserPhone,
           }),
         );
         
@@ -421,34 +1083,58 @@ class ChatService extends ChangeNotifier {
       }
       
       if (currentUserId != null) {
-        // Find contact user ID from contacts list
-        final contact = _contacts.firstWhere(
-          (c) => c.id == contactId,
-          orElse: () => Contact(id: contactId, name: '', phone: ''),
-        );
+        final headers = await _authHeaders();
         
-        // Try to find the contact to get their phone number
-        final targetContact = _contacts.firstWhere(
-          (c) => c.id == contactId,
-          orElse: () => Contact(id: contactId, name: '', phone: contactId),
-        );
-        
-        // Send message via API for WebSocket sync
-        final messageResponse = await http.post(
-          Uri.parse('http://10.0.2.2:4000/api/messages'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'fromUserId': currentUserId,
-            'toUserId': targetContact.phone, // Send phone number, backend will look up UUID
-            'content': text, // Send plain text to backend (encryption is local only)
-            'type': 'text',
-          }),
-        );
-        
-        if (messageResponse.statusCode == 201) {
-          debugPrint('[ChatService] Message sent via API for WebSocket sync');
+        // Check if this is a group message (contactId starts with 'chat_')
+        if (contactId.startsWith('chat_')) {
+          // Group message — find server ID and send via group messages API
+          String? serverId;
+          for (final entry in _groupServerIds.entries) {
+            if (groupIdForName(entry.key) == contactId) {
+              serverId = entry.value;
+              break;
+            }
+          }
+          if (serverId != null) {
+            final messageResponse = await http.post(
+              Uri.parse('${AppConfig.apiBase}/groups/$serverId/messages'),
+              headers: headers,
+              body: jsonEncode({
+                'fromId': currentUserId,
+                'content': text,
+              }),
+            ).timeout(const Duration(seconds: 10));
+            
+            if (messageResponse.statusCode == 201) {
+              debugPrint('[ChatService] Group message sent via API');
+            } else {
+              debugPrint('[ChatService] Failed to send group message: ${messageResponse.statusCode}');
+            }
+          } else {
+            debugPrint('[ChatService] No server ID for group: $contactId');
+          }
         } else {
-          debugPrint('[ChatService] Failed to send message via API: ${messageResponse.statusCode}');
+          // 1:1 message — find contact by phone (contactId IS the phone number)
+          final targetContact = _contacts.firstWhere(
+            (c) => c.phone == contactId || ChatService.phonesMatch(c.phone, contactId),
+            orElse: () => Contact(id: contactId, name: '', phone: contactId),
+          );
+          
+          final messageResponse = await http.post(
+            Uri.parse('${AppConfig.apiBase}/messages'),
+            headers: headers,
+            body: jsonEncode({
+              'fromId': currentUserId,
+              'toId': targetContact.phone,
+              'content': text,
+            }),
+          ).timeout(const Duration(seconds: 10));
+          
+          if (messageResponse.statusCode == 201) {
+            debugPrint('[ChatService] Message sent via API for WebSocket sync');
+          } else {
+            debugPrint('[ChatService] Failed to send message via API: ${messageResponse.statusCode}');
+          }
         }
       }
     } catch (e) {
@@ -557,97 +1243,114 @@ class ChatService extends ChangeNotifier {
     await prefs.remove(_privateSessionKey);
   }
 
-  /// Called by lifecycle watcher to clear all on leaving app or inactivity
+  /// Called by lifecycle watcher — only purge private messages, keep regular ones
   void handleAppLifecycle(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      clearAllMessages(reason: 'app_inactive');
+      purgePrivateMessages();
     }
   }
 
   // Add contact locally (for bulk import from phone)
   Future<void> addContactLocally({required String id, required String name, required String phone}) async {
-    final contact = Contact(id: id, name: name, phone: phone);
-    if (!_contacts.any((c) => c.phone == phone)) {
+    final normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone.isEmpty) return;
+    // Check for duplicates using normalized phone matching
+    final isDuplicate = _contacts.any((c) => phonesMatch(c.phone, normalizedPhone));
+    if (!isDuplicate) {
+      final contact = Contact(id: id, name: name, phone: normalizedPhone);
       _contacts.add(contact);
       await _saveContacts();
       notifyListeners();
-      print('[ChatService] Adding contact: $contact');
+      debugPrint('[ChatService] Adding contact: ${contact.name} (${contact.phone})');
     }
   }
 
-  Future<void> addContact(Contact contact) async {
-    // Also add contact via API
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserId = prefs.getString('current_user_id');
-      
-      if (currentUserId == null) {
-        // Get/create current user
-        final loginResponse = await http.post(
-          Uri.parse('http://10.0.2.2:4000/api/users/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'mobileNumber': contact.phone,
-            'countryCode': '+91',
-          }),
-        );
-        
-        if (loginResponse.statusCode == 200) {
-          final loginData = jsonDecode(loginResponse.body);
-          final contactUserId = loginData['user']?['id'];
-          
-          // Get current user (default to 9999999999 for now)
-          final currentUserResponse = await http.post(
-            Uri.parse('http://10.0.2.2:4000/api/users/login'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'mobileNumber': _currentUserPhone ?? '9999999999',
-              'countryCode': '+91',
-            }),
-          );
-          
-          if (currentUserResponse.statusCode == 200) {
-            final currentUserData = jsonDecode(currentUserResponse.body);
-            currentUserId = currentUserData['id'];
-            await prefs.setString('current_user_id', currentUserId!);
-            
-            // Add contact via API
-            await http.post(
-              Uri.parse('http://10.0.2.2:4000/api/contacts'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'userId': currentUserId,
-                'contactUserId': contactUserId,
-              }),
-            );
-            debugPrint('[ChatService] Contact added via API: ${contact.phone}');
-          }
-        }
+  /// Batch-add contacts from phone book — single save + single notify.
+  /// Much faster than calling addContactLocally() in a loop.
+  Future<int> addContactsBatch(List<Map<String, String>> contactsData) async {
+    int added = 0;
+    for (final data in contactsData) {
+      final phone = data['phone'] ?? '';
+      final name = data['name'] ?? '';
+      final id = data['id'] ?? '';
+      final normalizedPhone = normalizePhone(phone);
+      if (normalizedPhone.isEmpty) continue;
+      final isDuplicate = _contacts.any((c) => phonesMatch(c.phone, normalizedPhone));
+      if (!isDuplicate) {
+        _contacts.add(Contact(id: id, name: name, phone: normalizedPhone));
+        added++;
       }
-    } catch (e) {
-      debugPrint('[ChatService] Failed to add contact via API: $e');
-      // Continue with local add even if API fails
     }
-    
-    debugPrint('[ChatService] Adding contact: ${contact.toJson()}');
-    _contacts.add(contact);
-    await _saveContacts();
-    debugPrint(
-      '[ChatService] Contacts after add: \\n${_contacts.map((c) => c.toJson())}',
+    if (added > 0) {
+      await _saveContacts();
+      notifyListeners();
+      debugPrint('[ChatService] Batch added $added contacts (${contactsData.length} total, ${contactsData.length - added} duplicates skipped)');
+    }
+    return added;
+  }
+
+  Future<void> addContact(Contact contact) async {
+    // Normalize phone before storing
+    final normalizedPhone = normalizePhone(contact.phone);
+    final normalizedContact = Contact(
+      id: contact.id,
+      name: contact.name,
+      phone: normalizedPhone.isNotEmpty ? normalizedPhone : contact.phone,
     );
     
-    // Sync to backend via GraphQL
+    debugPrint('[ChatService] Adding contact: ${normalizedContact.toJson()}');
+    
+    // Check for duplicates
+    final existingIndex = _contacts.indexWhere((c) => phonesMatch(c.phone, normalizedContact.phone));
+    if (existingIndex >= 0) {
+      final existingContact = _contacts[existingIndex];
+      // If the contact was blocked, unblock it and update the name
+      if (_blockedContacts.contains(existingContact.id)) {
+        await unblockContact(existingContact.id);
+        // Update name if changed
+        if (existingContact.name != normalizedContact.name) {
+          _contacts[existingIndex] = Contact(
+            id: existingContact.id,
+            name: normalizedContact.name,
+            phone: existingContact.phone,
+          );
+          await _saveContacts();
+          notifyListeners();
+        }
+        debugPrint('[ChatService] Unblocked and restored contact: ${existingContact.phone}');
+        return;
+      }
+      debugPrint('[ChatService] Duplicate contact, skipping: ${normalizedContact.phone}');
+      return;
+    }
+    
+    // 1. Update UI INSTANTLY
+    _contacts.add(normalizedContact);
+    await _saveContacts();
+    notifyListeners();
+    debugPrint('[ChatService] Contact added locally — UI updated instantly');
+    
+    // 2. Sync to backend in background (don't block UI)
+    _syncContactToBackend(normalizedContact);
+  }
+
+  /// Background sync — runs after UI is already updated
+  Future<void> _syncContactToBackend(Contact contact) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('current_user_id') ?? '11111111-1111-1111-1111-111111111111'; // Default test user
+      final userId = prefs.getString('current_user_id');
+      if (userId == null) {
+        debugPrint('[ChatService] No current user ID, skipping backend sync');
+        return;
+      }
       
       final apiService = ApiService();
       
-      // Get or create contact user first
+      // Get or create contact user
       final contactUserResponse = await apiService.loginUser(contact.phone);
-      final contactUserId = contactUserResponse["id"];
+      final contactUserId = contactUserResponse['id'];
       
       final result = await apiService.createContactChannel(
         userId: userId,
@@ -656,7 +1359,7 @@ class ChatService extends ChangeNotifier {
       
       if (result != null) {
         debugPrint('[ChatService] Contact synced to backend: $result');
-        // Push to admin portal for audit/sync
+        // Push to admin portal for audit
         await syncToAdminPortal(
           event: 'add_contact',
           data: {
@@ -665,94 +1368,32 @@ class ChatService extends ChangeNotifier {
             'phone': contact.phone,
           },
         );
-      } else {
-        debugPrint('[ChatService] Failed to sync contact to backend');
       }
+    } on TimeoutException {
+      debugPrint('[ChatService] Backend sync timeout (contact still saved locally)');
     } catch (e) {
-      debugPrint('[ChatService] Error syncing contact: $e');
+      debugPrint('[ChatService] Background sync error (contact still saved locally): $e');
     }
+  }
+
+  /// Update an existing contact's name and/or phone
+  Future<void> updateContact(String contactId, {String? name, String? phone}) async {
+    final index = _contacts.indexWhere((c) => c.id == contactId);
+    if (index == -1) return;
     
+    final old = _contacts[index];
+    final updatedPhone = phone != null ? normalizePhone(phone) : old.phone;
+    _contacts[index] = Contact(
+      id: old.id,
+      name: name ?? old.name,
+      phone: updatedPhone.isNotEmpty ? updatedPhone : old.phone,
+    );
+    await _saveContacts();
     notifyListeners();
+    debugPrint('[ChatService] Contact updated: ${_contacts[index].toJson()}');
   }
 
-  /// Load contacts from REST API
-  Future<void> _loadContactsFromAPI() async {
-    try {
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:4000/api/contacts'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        _contacts = data.map((contact) {
-          // Convert API contact format to Contact model
-          final contactUser = contact['contact_user']?['username'] ?? '';
-          final contactId = contact['id'] ?? '';
-          // Extract phone number from username (format: +91XXXXXXXXXX)
-          final phone = contactUser.replaceAll('+91', '');
-          // Extract name if available, otherwise use phone
-          final name = contact['contact_user']?['name'] ?? phone;
-          
-          return Contact(
-            id: contactId,
-            name: name,
-            phone: phone,
-          );
-        }).toList();
-        
-        // Save to local storage for offline access
-        await _saveContacts();
-        
-        debugPrint('[ChatService] Loaded ${_contacts.length} contacts from API');
-        notifyListeners();
-      } else {
-        debugPrint('[ChatService] Failed to load contacts from API: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[ChatService] Error loading contacts from API: $e');
-      // Fallback to local storage (handled in init)
-    }
-  }
-
-  /// Fetch contacts from REST API and sync with local storage
-  Future<void> _fetchContactsFromAPI() async {
-    try {
-      debugPrint('[ChatService] Fetching contacts from API...');
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:4000/api/contacts'),
-        headers: {'Content-Type': 'application/json'},
-      );
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        _contacts = data.map((contact) {
-          // Convert API contact format to Contact model
-          final contactUser = contact['contact_user']?['username'] ?? '';
-          final contactId = contact['id'] ?? '';
-          // Extract phone number from username (format: +91XXXXXXXXXX)
-          final phone = contactUser.replaceAll(RegExp(r'[^\d]'), '');
-          final name = contactUser; // Use username as name for now
-          
-          return Contact(
-            id: contactId,
-            name: name,
-            phone: phone,
-          );
-        }).toList();
-        
-        // Save to local storage for offline access
-        await _saveContacts();
-        debugPrint('[ChatService] Fetched ${_contacts.length} contacts from API');
-        notifyListeners();
-      } else {
-        debugPrint('[ChatService] API fetch failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[ChatService] Error fetching contacts from API: $e');
-      // Continue with local storage if API fails
-    }
-  }
+  // Duplicate _loadContactsFromAPI and _fetchContactsFromAPI removed — contact fetching is handled in init()
 
   Future<void> _saveContacts() async {
     final prefs = await SharedPreferences.getInstance();
@@ -780,13 +1421,61 @@ class ChatService extends ChangeNotifier {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     if (_groups.contains(trimmed)) return;
+    
+    // Save locally first for instant UI feedback
     _groups.add(trimmed);
-    if (memberIds.isNotEmpty) {
-      _groupMembers[trimmed] = List<String>.from(memberIds);
-      await _saveGroupMembers();
+    
+    // Set up roles: creator is admin
+    _groupRoles[trimmed] = {};
+    if (_currentUserId != null) {
+      _groupRoles[trimmed]![_currentUserId!] = 'admin';
+      // Add creator to members list
+      _groupMembers[trimmed] = [_currentUserId!];
+    } else {
+      _groupMembers[trimmed] = [];
     }
+    
+    // Add selected members with 'member' role
+    for (final mid in memberIds) {
+      if (mid != _currentUserId && !_groupMembers[trimmed]!.contains(mid)) {
+        _groupMembers[trimmed]!.add(mid);
+        _groupRoles[trimmed]![mid] = 'member';
+      }
+    }
+    
+    await _saveGroupMembers();
+    await _saveGroupRoles();
     await _saveGroups();
     notifyListeners();
+    
+    // Sync to backend
+    try {
+      final headers = await _authHeaders();
+      final response = await http.post(
+        Uri.parse('${AppConfig.apiBase}/groups'),
+        headers: headers,
+        body: jsonEncode({
+          'name': trimmed,
+          'createdBy': _currentUserId,
+          'memberIds': memberIds,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 201) {
+        final body = jsonDecode(response.body);
+        final serverId = body['id']?.toString();
+        if (serverId != null) {
+          _groupServerIds[trimmed] = serverId;
+          await _saveGroupServerIds();
+        }
+        debugPrint('[ChatService] Group "$trimmed" synced to backend (id=$serverId)');
+      } else {
+        debugPrint('[ChatService] Group sync failed: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('[ChatService] Group sync error: $e');
+      // Local group still works even if backend fails
+    }
   }
 
   Future<void> deleteGroup(String name) async {
@@ -844,5 +1533,44 @@ class ChatService extends ChangeNotifier {
       await _saveBlockedGroups();
       notifyListeners();
     }
+  }
+
+  /// Reset all in-memory state AND persisted storage — call on logout or account deletion.
+  /// This ensures the next login starts fresh without stale data.
+  Future<void> reset() async {
+    debugPrint('[ChatService] Resetting all in-memory state + storage');
+    _contacts.clear();
+    _messages.clear();
+    _groups.clear();
+    _groupMembers.clear();
+    _blockedContacts.clear();
+    _blockedGroups.clear();
+    _onlineUsers.clear();
+    _typingUsers.clear();
+    for (final timer in _typingTimers.values) {
+      timer.cancel();
+    }
+    _typingTimers.clear();
+    _currentUserId = null;
+    _currentUserPhone = null;
+    _lastPrivateActivity = null;
+    _adminSettings = null;
+    _appConfig = {};
+    disconnectWebSocket();
+    _inactivityTimer?.cancel();
+
+    // Also clear persisted storage so init() doesn't reload stale data
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_contactsKey);
+    await prefs.remove(_messagesKey);
+    await prefs.remove(_groupsKey);
+    await prefs.remove(_groupMembersKey);
+    await prefs.remove(_blockedKey);
+    await prefs.remove(_blockedGroupsKey);
+    await prefs.remove(_privateSessionKey);
+    await prefs.remove(_privateKeyPref);
+
+    notifyListeners();
+    debugPrint('[ChatService] State + storage reset complete');
   }
 }

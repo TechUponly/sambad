@@ -1,0 +1,203 @@
+{
+  "info": {
+    "name": "Firebase Phone Authentication",
+    "description": "Test Firebase Phone Auth for Private Sambad",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "WEB_API_KEY",
+      "value": "AIzaSyB7d8mR41AEaMWpQ308YujKZD2HHWGy89o",
+      "type": "string"
+    },
+    {
+      "key": "SESSION_INFO",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ID_TOKEN",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Send OTP (Test Phone)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save session info for next request",
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('SESSION_INFO', jsonData.sessionInfo);",
+              "    pm.test('OTP sent successfully', function () {",
+              "        pm.expect(jsonData.sessionInfo).to.exist;",
+              "    });",
+              "} else {",
+              "    pm.test('Failed to send OTP', function () {",
+              "        pm.expect.fail('Check Firebase Console - Phone Auth enabled?');",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phoneNumber\": \"+16505551234\",\n  \"recaptchaToken\": \"test\"\n}"
+        },
+        "url": {
+          "raw": "https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key={{WEB_API_KEY}}",
+          "protocol": "https",
+          "host": [
+            "identitytoolkit",
+            "googleapis",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "accounts:sendVerificationCode"
+          ],
+          "query": [
+            {
+              "key": "key",
+              "value": "{{WEB_API_KEY}}"
+            }
+          ]
+        },
+        "description": "Send OTP to test phone number +1 650-555-1234"
+      },
+      "response": []
+    },
+    {
+      "name": "2. Verify OTP (Test Code)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save ID token",
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('ID_TOKEN', jsonData.idToken);",
+              "    pm.test('OTP verified successfully', function () {",
+              "        pm.expect(jsonData.idToken).to.exist;",
+              "        pm.expect(jsonData.localId).to.exist;",
+              "    });",
+              "    console.log('User ID:', jsonData.localId);",
+              "    console.log('ID Token:', jsonData.idToken.substring(0, 50) + '...');",
+              "} else {",
+              "    pm.test('Failed to verify OTP', function () {",
+              "        pm.expect.fail('Check OTP code or session info');",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sessionInfo\": \"{{SESSION_INFO}}\",\n  \"code\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key={{WEB_API_KEY}}",
+          "protocol": "https",
+          "host": [
+            "identitytoolkit",
+            "googleapis",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "accounts:signInWithPhoneNumber"
+          ],
+          "query": [
+            {
+              "key": "key",
+              "value": "{{WEB_API_KEY}}"
+            }
+          ]
+        },
+        "description": "Verify OTP with test code 123456"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get User Info",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.test('User info retrieved', function () {",
+              "        pm.expect(jsonData.users).to.exist;",
+              "        pm.expect(jsonData.users[0].phoneNumber).to.exist;",
+              "    });",
+              "    console.log('Phone:', jsonData.users[0].phoneNumber);",
+              "    console.log('User ID:', jsonData.users[0].localId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idToken\": \"{{ID_TOKEN}}\"\n}"
+        },
+        "url": {
+          "raw": "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={{WEB_API_KEY}}",
+          "protocol": "https",
+          "host": [
+            "identitytoolkit",
+            "googleapis",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "accounts:lookup"
+          ],
+          "query": [
+            {
+              "key": "key",
+              "value": "{{WEB_API_KEY}}"
+            }
+          ]
+        },
+        "description": "Get authenticated user information"
+      },
+      "response": []
+    }
+  ]
+}

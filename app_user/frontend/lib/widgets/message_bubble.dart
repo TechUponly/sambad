@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/message.dart';
+import '../utils/responsive.dart';
+import '../theme/app_colors.dart';
 
 class MessageBubble extends StatelessWidget {
   final Message message;
@@ -29,6 +31,7 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final radius = BorderRadius.circular(20);
     final bg = isMe
         ? const LinearGradient(
@@ -36,22 +39,23 @@ class MessageBubble extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
-        : const LinearGradient(
-            colors: [Color(0xFF232B3E), Color(0xFF181A20)],
+        : LinearGradient(
+            colors: [c.card, c.bg],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
-    final textColor = Colors.white;
+    final textColor = isMe ? Colors.white : c.text;
 
+    final maxBubbleWidth = Responsive.widthPercent(context, 0.75);
     return AnimatedAlign(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          margin: Responsive.paddingSymmetric(context, v: 8, h: 8),
+          padding: Responsive.paddingSymmetric(context, h: 16, v: 14),
           decoration: BoxDecoration(
             gradient: bg,
             borderRadius: isMe
@@ -67,7 +71,7 @@ class MessageBubble extends StatelessWidget {
                   ),
             boxShadow: [
               BoxShadow(
-                color: isMe ? const Color(0xFF00FFC2).withOpacity(0.18) : Colors.black.withOpacity(0.18),
+                color: isMe ? const Color(0xFF00FFC2).withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.18),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -83,7 +87,7 @@ class MessageBubble extends StatelessWidget {
                   if (message.private)
                     Padding(
                       padding: const EdgeInsets.only(right: 6.0),
-                      child: Icon(Icons.lock, size: 16, color: isMe ? Colors.black54 : Colors.white70),
+                      child: Icon(Icons.lock, size: 16, color: isMe ? Colors.black54 : c.textMuted),
                     ),
                   Flexible(
                     child: Text(
@@ -92,7 +96,7 @@ class MessageBubble extends StatelessWidget {
                         color: textColor,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'Montserrat',
-                        fontSize: 16,
+                        fontSize: Responsive.fontSize(context, 16),
                         letterSpacing: 0.1,
                         shadows: isMe
                             ? [const Shadow(color: Colors.white24, blurRadius: 2)]
@@ -109,8 +113,8 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     _formatTime(message.timestamp),
                     style: TextStyle(
-                      color: isMe ? Colors.black54 : Colors.white54,
-                      fontSize: 11,
+                      color: isMe ? Colors.white60 : c.textMuted,
+                      fontSize: Responsive.fontSize(context, 11),
                       fontWeight: FontWeight.w500,
                     ),
                   ),

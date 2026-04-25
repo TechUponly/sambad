@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
+import '../utils/phone_validator.dart';
+import '../utils/country_code_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:country_code_picker/country_code_picker.dart';
-import 'package:flutter_otp_text_field/flutter_otp_text_field.dart';
+// ...existing code...
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../home_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_page.dart';
 import '../services/chat_service.dart';
-
-const Color kPrimaryBlue = Color(0xFF5B7FFF);
+import '../theme/app_colors.dart';
+import '../utils/responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,43 +26,182 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
+  final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
   bool _codeSent = false;
   String _verificationId = '';
   String _countryCode = '+91';
+  Timer? _resendTimer;
+  int _resendSeconds = 60;
+  bool _canResend = false;
+  String? _errorMessage;
+  String _statusMessage = '';
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    for (var controller in _otpControllers) {
+      controller.dispose();
+    }
+    for (var node in _otpFocusNodes) {
+      node.dispose();
+    }
+    _resendTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startResendTimer() {
+    _canResend = false;
+    _resendSeconds = 60;
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_resendSeconds > 0) {
+          _resendSeconds--;
+        } else {
+          _canResend = true;
+          timer.cancel();
+        }
+      });
+    });
+  }
 
   Future<void> _sendOTP() async {
-    final phone = _countryCode + _phoneController.text.trim();
-    if (_phoneController.text.isEmpty) return;
-    setState(() => _isLoading = true);
+    final rawPhone = _phoneController.text.trim();
+    
+    // Validate phone number
+    final validationError = PhoneValidator.validate(rawPhone, _countryCode);
+    if (validationError != null) {
+      setState(() => _errorMessage = validationError);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(validationError),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    
+    final phone = _countryCode + PhoneValidator.cleanPhone(rawPhone);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _statusMessage = 'Sending OTP...';
+    });
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: phone,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        await _saveAndNavigate();
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
+    try {
+      // For web, we need to handle reCAPTCHA differently
+      if (kIsWeb) {
+        // Web phone auth with reCAPTCHA
+        final confirmationResult = await FirebaseAuth.instance.signInWithPhoneNumber(
+          phone,
         );
-      },
-      codeSent: (String verificationId, int? resendToken) {
+        
         setState(() {
           _isLoading = false;
           _codeSent = true;
-          _verificationId = verificationId;
+          _verificationId = confirmationResult.verificationId;
         });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+        _startResendTimer();
+        // Auto-focus first OTP field
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) _otpFocusNodes[0].requestFocus();
+        });
+      } else {
+        // Mobile phone auth
+        await FirebaseAuth.instance.verifyPhoneNumber(
+          phoneNumber: phone,
+          verificationCompleted: (PhoneAuthCredential credential) async {
+            await FirebaseAuth.instance.signInWithCredential(credential);
+            await _saveAndNavigate();
+          },
+          verificationFailed: (FirebaseAuthException e) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = e.message ?? 'Verification failed';
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red),
+            );
+          },
+          codeSent: (String verificationId, int? resendToken) {
+            setState(() {
+              _isLoading = false;
+              _codeSent = true;
+              _verificationId = verificationId;
+            });
+            _startResendTimer();
+            // Auto-focus first OTP field
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted) _otpFocusNodes[0].requestFocus();
+            });
+          },
+          codeAutoRetrievalTimeout: (String verificationId) {
+            _verificationId = verificationId;
+          },
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _onOtpChanged(int index, String value) {
+    if (value.length == 1 && index < 5) {
+      // Move to next field immediately
+      _otpFocusNodes[index + 1].requestFocus();
+    } else if (value.isEmpty && index > 0) {
+      // Move to previous field on backspace
+      _otpFocusNodes[index - 1].requestFocus();
+    }
+    
+    // Check if all fields are filled and auto-submit immediately
+    final otp = _otpControllers.map((c) => c.text).join();
+    if (otp.length == 6) {
+      // Unfocus to hide keyboard
+      FocusScope.of(context).unfocus();
+      // Verify immediately without delay
+      _verifyOTP(otp);
+    }
+  }
+
+  Future<void> _pasteOtp() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null) {
+      final text = data!.text!.replaceAll(RegExp(r'[^0-9]'), '');
+      if (text.length >= 6) {
+        // Fill all fields
+        for (int i = 0; i < 6; i++) {
+          _otpControllers[i].text = text[i];
+        }
+        // Unfocus keyboard
+        if (!mounted) return;
+        FocusScope.of(context).unfocus();
+        // Verify immediately
+        _verifyOTP(text.substring(0, 6));
+      }
+    }
   }
 
   Future<void> _verifyOTP(String otp) async {
-    setState(() => _isLoading = true);
+    if (otp.length != 6) return;
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _statusMessage = 'Verifying OTP...';
+    });
+    
     try {
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId,
@@ -67,9 +210,23 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
       await _saveAndNavigate();
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Invalid OTP. Please try again.';
+      });
+      // Clear OTP fields
+      for (var controller in _otpControllers) {
+        controller.clear();
+      }
+      _otpFocusNodes[0].requestFocus();
+      
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid OTP. Please try again.'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Invalid OTP. Please try again.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
       );
     }
   }
@@ -77,151 +234,301 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _saveAndNavigate() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      if (mounted) setState(() => _statusMessage = 'Setting up your account...');
       final token = await user.getIdToken();
       final prefs = await SharedPreferences.getInstance();
+      
+      // Clear stale session data from previous logins FIRST
+      await prefs.remove('current_user_id');
+      await prefs.remove('current_user_name');
+      await prefs.remove('profile_name');
+      await prefs.remove('profile_age');
+      await prefs.remove('profile_gender');
+      await prefs.remove('profile_pic');
+      
+      // Now save fresh session data
       await prefs.setString('firebase_token', token ?? '');
       await prefs.setString('current_user_phone', user.phoneNumber ?? '');
-      // Also login to backend
+      
+      // Extract name: use Firebase displayName, or phone number
+      String? displayName = user.displayName;
+      if (displayName == null || displayName.isEmpty) {
+        // Use a clean phone number as fallback name
+        displayName = user.phoneNumber?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+        if (displayName.length > 10) displayName = displayName.substring(displayName.length - 10);
+      }
+      
+      // Reset ChatService state from previous session
       if (mounted) {
-        await context.read<ChatService>().loginUser(user.phoneNumber ?? '');
+        await context.read<ChatService>().reset();
+      }
+      
+      // Login to backend with name
+      if (mounted) {
+        await context.read<ChatService>().loginUser(
+          user.phoneNumber ?? '',
+          name: displayName,
+        );
       }
     }
-    // Request contacts permission and sync
-    await _requestContactsAndSync();
+    
+    // Navigate to HomePage IMMEDIATELY (don't wait for contacts sync)
     if (mounted) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
     }
+    
+    // Sync contacts in the background AFTER navigation
+    _requestContactsAndSync();
   }
 
   Future<void> _requestContactsAndSync() async {
     try {
       final status = await Permission.contacts.request();
       if (status.isGranted) {
-        final contacts = await FlutterContacts.getContacts(withProperties: true);
+        final contacts = await FlutterContacts.getAll(
+          properties: {ContactProperty.phone, ContactProperty.name},
+        );
         if (mounted) {
           final chatService = context.read<ChatService>();
+          // Build batch list instead of adding one-by-one
+          final batch = <Map<String, String>>[];
           for (var contact in contacts) {
             if (contact.phones.isNotEmpty) {
-              chatService.addContactLocally(
-                id: contact.id,
-                name: contact.displayName,
-                phone: contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
-              );
+              batch.add({
+                'id': contact.id ?? '',
+                'name': contact.displayName ?? '',
+                'phone': contact.phones.first.number.replaceAll(RegExp(r'[^0-9+]'), ''),
+              });
             }
+          }
+          if (batch.isNotEmpty) {
+            final added = await chatService.addContactsBatch(batch);
+            debugPrint('[LoginScreen] Synced $added new contacts from ${batch.length} phone contacts');
           }
         }
       }
     } catch (e) {
-      print('❌ Error syncing contacts: $e');
+      debugPrint('[LoginScreen] Error syncing contacts: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF181A20),
+      backgroundColor: c.bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: Responsive.paddingAll(context, 24),
           child: Column(
             children: [
-              const SizedBox(height: 60),
+              SizedBox(height: Responsive.vertical(context, 60)),
               Container(
-                width: 80, height: 80,
-                decoration: const BoxDecoration(color: kPrimaryBlue, shape: BoxShape.circle),
-                child: const Icon(Icons.chat_bubble, color: Colors.white, size: 40),
+                width: Responsive.size(context, 80), height: Responsive.size(context, 80),
+                decoration: const BoxDecoration(color: AppColors.primaryBlue, shape: BoxShape.circle),
+                child: Icon(Icons.chat_bubble, color: Colors.white, size: Responsive.size(context, 40)),
               ),
-              const SizedBox(height: 24),
-              const Text('Welcome to Sambad', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              const Text('Private & secure messaging', style: TextStyle(color: Colors.white60, fontSize: 16)),
-              const SizedBox(height: 48),
+              SizedBox(height: Responsive.vertical(context, 24)),
+              Text('Welcome to Samvad', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 28), fontWeight: FontWeight.bold)),
+              SizedBox(height: Responsive.vertical(context, 8)),
+              Text('Private & secure messaging', style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 16))),
+              SizedBox(height: Responsive.vertical(context, 48)),
               Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(color: const Color(0xFF23272F), borderRadius: BorderRadius.circular(20)),
+                padding: Responsive.paddingAll(context, 24),
+                decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(Responsive.radius(context, 20))),
                 child: Column(
                   children: [
                     if (!_codeSent) ...[
-                      Row(
-                        children: [
-                          CountryCodePicker(
-                            onChanged: (code) => setState(() => _countryCode = code.dialCode ?? '+91'),
-                            initialSelection: 'IN',
-                            favorite: const ['+91', 'IN'],
-                            textStyle: const TextStyle(color: Colors.white),
-                            dialogBackgroundColor: const Color(0xFF23272F),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              style: const TextStyle(color: Colors.white, fontSize: 18),
-                              cursorColor: kPrimaryBlue,
-                              decoration: InputDecoration(
-                                hintText: 'Phone number',
-                                hintStyle: const TextStyle(color: Colors.white54),
-                                filled: true,
-                                fillColor: Colors.white10,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
+                      // Full-width phone number input
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20), letterSpacing: 2),
+                        cursorColor: AppColors.primaryBlue,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(PhoneValidator.getExpectedDigits(_countryCode)),
+                        ],
+                        onChanged: (val) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: 'Enter phone number',
+                          hintStyle: TextStyle(color: c.textHint, fontSize: Responsive.fontSize(context, 18), letterSpacing: 0),
+                          filled: true,
+                          fillColor: c.text.withValues(alpha: 0.08),
+                          prefixIcon: GestureDetector(
+                            onTap: () async {
+                              final selected = await showCountryCodePicker(context);
+                              if (selected != null) setState(() => _countryCode = selected.code);
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: Responsive.horizontal(context, 12)),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(_countryCode, style: TextStyle(color: AppColors.primaryBlue, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.bold)),
+                                  Icon(Icons.arrow_drop_down, color: c.textMuted, size: Responsive.size(context, 20)),
+                                ],
                               ),
                             ),
                           ),
-                        ],
+                          prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 14)), borderSide: BorderSide.none),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 14)), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
+                          contentPadding: Responsive.paddingSymmetric(context, h: 16, v: 18),
+                        ),
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: Responsive.vertical(context, 6)),
+                      // Digit count helper
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_phoneController.text.length}/${PhoneValidator.getExpectedDigits(_countryCode)} digits',
+                          style: TextStyle(color: c.textHint, fontSize: Responsive.fontSize(context, 12)),
+                        ),
+                      ),
+                      SizedBox(height: Responsive.vertical(context, 24)),
                       SizedBox(
-                        width: double.infinity, height: 56,
+                        width: double.infinity, height: Responsive.size(context, 56),
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _sendOTP,
-                          style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 16)))),
                           child: _isLoading
-                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Text('Send OTP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(width: Responsive.size(context, 24), height: Responsive.size(context, 24), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                                    SizedBox(width: Responsive.horizontal(context, 8)),
+                                    Text(_statusMessage, style: TextStyle(fontSize: Responsive.fontSize(context, 14), color: Colors.white70)),
+                                  ],
+                                )
+                              : Text('Send OTP', style: TextStyle(fontSize: Responsive.fontSize(context, 16), fontWeight: FontWeight.w600, color: Colors.white)),
                         ),
                       ),
                     ] else ...[
-                      const Text('Enter OTP', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text('Sent to $_countryCode${_phoneController.text}', style: const TextStyle(color: Colors.white60)),
-                      const SizedBox(height: 24),
-                      OtpTextField(
-                        numberOfFields: 6,
-                        borderColor: kPrimaryBlue,
-                        focusedBorderColor: kPrimaryBlue,
-                        fieldWidth: 45,
-                        textStyle: const TextStyle(color: Colors.white, fontSize: 18),
-                        showFieldAsBox: true,
-                        onSubmit: (otp) => _verifyOTP(otp),
+                      Text('Enter OTP', style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20), fontWeight: FontWeight.bold)),
+                      SizedBox(height: Responsive.vertical(context, 8)),
+                      Text('Sent to $_countryCode${_phoneController.text}', style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14))),
+                      SizedBox(height: Responsive.vertical(context, 24)),
+                      
+                      // Smart OTP Input Fields — responsive width
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final fieldWidth = (constraints.maxWidth - 5 * 8) / 6; // 6 fields, 5 gaps of 8px
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(6, (index) {
+                              return SizedBox(
+                                width: fieldWidth.clamp(36, 56),
+                                height: Responsive.size(context, 56),
+                                child: TextField(
+                                  controller: _otpControllers[index],
+                                  focusNode: _otpFocusNodes[index],
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
+                                  maxLength: 1,
+                                  style: TextStyle(color: c.text, fontSize: Responsive.fontSize(context, 20), fontWeight: FontWeight.bold),
+                                  decoration: InputDecoration(
+                                    counterText: '',
+                                    filled: true,
+                                    fillColor: c.text.withValues(alpha: 0.08),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+                                      borderSide: BorderSide(color: c.textHint),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+                                      borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+                                      borderSide: BorderSide(color: c.textHint),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+                                      borderSide: const BorderSide(color: Colors.red, width: 2),
+                                    ),
+                                  ),
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  onChanged: (value) => _onOtpChanged(index, value),
+                                ),
+                              );
+                            }),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 24),
+                      
+                      if (_errorMessage != null) ...[
+                        SizedBox(height: Responsive.vertical(context, 12)),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red, fontSize: Responsive.fontSize(context, 14)),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      
+                      SizedBox(height: Responsive.vertical(context, 16)),
+                      
+                      // Paste OTP Button
+                      TextButton.icon(
+                        onPressed: _pasteOtp,
+                        icon: Icon(Icons.content_paste, size: Responsive.size(context, 18), color: AppColors.primaryBlue),
+                        label: Text('Paste OTP', style: TextStyle(color: AppColors.primaryBlue, fontSize: Responsive.fontSize(context, 14))),
+                      ),
+                      
+                      SizedBox(height: Responsive.vertical(context, 8)),
+                      
                       if (_isLoading)
-                        const CircularProgressIndicator(color: kPrimaryBlue),
-                      TextButton(
-                        onPressed: () => setState(() => _codeSent = false),
-                        child: const Text('Change number', style: TextStyle(color: kPrimaryBlue)),
-                      ),
+                        const CircularProgressIndicator(color: AppColors.primaryBlue)
+                      else ...[
+                        // Resend OTP
+                        if (_canResend)
+                          TextButton(
+                            onPressed: _sendOTP,
+                            child: Text('Resend OTP', style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 14))),
+                          )
+                        else
+                          Text(
+                            'Resend OTP in $_resendSeconds seconds',
+                            style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14)),
+                          ),
+                        
+                        SizedBox(height: Responsive.vertical(context, 8)),
+                        
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _codeSent = false;
+                              _errorMessage = null;
+                              for (var controller in _otpControllers) {
+                                controller.clear();
+                              }
+                            });
+                            _resendTimer?.cancel();
+                          },
+                          child: Text('Change number', style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 14))),
+                        ),
+                      ],
                     ],
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: Responsive.vertical(context, 32)),
               RichText(
                 textAlign: TextAlign.center,
                 text: TextSpan(
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: c.textMuted, fontSize: Responsive.fontSize(context, 12)),
                   children: [
                     const TextSpan(text: 'By continuing, you agree to our\n'),
                     TextSpan(
                       text: 'Terms of Service',
-                      style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+                      style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 12), decoration: TextDecoration.underline),
                       recognizer: TapGestureRecognizer()..onTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsPage())),
                     ),
                     const TextSpan(text: ' and '),
                     TextSpan(
                       text: 'Privacy Policy',
-                      style: const TextStyle(color: kPrimaryBlue, fontWeight: FontWeight.w600, decoration: TextDecoration.underline),
+                      style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 12), decoration: TextDecoration.underline),
                       recognizer: TapGestureRecognizer()..onTap = () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyPage())),
                     ),
                   ],

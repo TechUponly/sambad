@@ -5,35 +5,11 @@ import 'services/chat_service.dart';
 import 'models/message.dart';
 import 'widgets/message_bubble.dart';
 import 'package:image_picker/image_picker.dart';
+import 'utils/responsive.dart';
+import 'theme/app_colors.dart';
+import 'group_info_page.dart';
+import 'contact_profile_page.dart';
 
-// NEW: Home page with groups
-class ChatHomePage extends StatefulWidget {
-  const ChatHomePage({super.key});
-
-  @override
-  State<ChatHomePage> createState() => _ChatHomePageState();
-}
-
-class _ChatGroupCreateResult {
-  final String name;
-  final List<String> memberIds;
-
-  _ChatGroupCreateResult({required this.name, required this.memberIds});
-}
-
-class _ChatHomePageState extends State<ChatHomePage> {
-  // Group creation dialog logic is available for integration when needed.
-
-  @override
-  Widget build(BuildContext context) {
-    // ...existing code for your main chat home page UI...
-    return Scaffold(
-      // Example placeholder
-      appBar: AppBar(title: const Text('Chats')),
-      body: Center(child: Text('Chat Home Page')),
-    );
-  }
-}
 
 class ChatPage extends StatefulWidget {
   final String name;
@@ -54,6 +30,41 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
+  List<Message> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Load messages initially and listen for changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshMessages();
+      // Mark incoming messages as read when chat is opened
+      final svc = context.read<ChatService>();
+      svc.markMessagesAsRead(_contactId);
+    });
+    context.read<ChatService>().addListener(_refreshMessages);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scroll.dispose();
+    // Remove listener if still mounted
+    try {
+      context.read<ChatService>().removeListener(_refreshMessages);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  Future<void> _refreshMessages() async {
+    if (!mounted) return;
+    final svc = context.read<ChatService>();
+    final msgs = await svc.messagesFor(_contactId);
+    if (mounted) {
+      setState(() => _messages = msgs);
+    }
+  }
+
   Future<void> _pickAndSendImage({bool fromCamera = false}) async {
     try {
       final ImagePicker imagePicker = ImagePicker();
@@ -124,43 +135,83 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final svc = context.watch<ChatService>();
+    // Still watch for rebuilds (e.g. contact changes), but messages come from cached _messages
+    context.watch<ChatService>();
+    final cc = AppColors.of(context);
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)), 
+      appBar: AppBar(leading: IconButton(icon: Icon(Icons.arrow_back, color: cc.text), onPressed: () => Navigator.pop(context)), 
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Row(
+        title: GestureDetector(
+          onTap: () {
+            if (!widget.isPrivate) {
+              // Group chat — open group info page
+              Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: widget.name)));
+            } else if (widget.contact != null) {
+              // Individual chat — open contact profile page
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ContactProfilePage(contact: widget.contact!)));
+            }
+          },
+          child: Row(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF5B7FFF), Color(0xFF4A6FE8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+            Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: widget.isPrivate
+                          ? [const Color(0xFF5B7FFF), const Color(0xFF4A6FE8)]
+                          : [const Color(0xFF5B7FFF), const Color(0xFF4A6FE8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const CircleAvatar(
-                backgroundColor: Colors.transparent,
-                child: Icon(Icons.person, color: Colors.black87),
-              ),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.transparent,
+                    child: Icon(widget.isPrivate ? Icons.person : Icons.group, color: Colors.black87),
+                  ),
+                ),
+                // Online indicator dot
+                if (widget.contact != null && context.watch<ChatService>().isOnline(widget.contact!.id))
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.black, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
-            Text(
-              widget.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.name,
+                  style: TextStyle(
+                    color: cc.text,
+                    fontWeight: FontWeight.bold,
+                    fontSize: Responsive.fontSize(context, 20),
+                  ),
+                ),
+                if (widget.contact != null && context.watch<ChatService>().isTyping(widget.contact!.id))
+                  const Text('typing...', style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontStyle: FontStyle.italic)),
+              ],
             ),
             if (widget.isPrivate && widget.onCall != null) ...[
               const SizedBox(width: 16),
@@ -171,21 +222,17 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ],
           ],
-        ),
+        ),), // GestureDetector + Row
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF181A20), Color(0xFF232B3E), Color(0xFF23272F)],
+            colors: [cc.bg, cc.card, cc.bg],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
-        child: FutureBuilder<List<Message>>(
-          future: svc.messagesFor(_contactId),
-          builder: (context, snapshot) {
-            final messages = snapshot.data ?? [];
-            return Stack(
+        child: Stack(
               children: [
                 // Main chat area
                 Column(
@@ -193,16 +240,16 @@ class _ChatPageState extends State<ChatPage> {
                     Expanded(
                       child: ListView.builder(
                         controller: _scroll,
-                        itemCount: messages.length,
+                        itemCount: _messages.length,
                         itemBuilder: (context, index) {
-                          final msg = messages[index];
+                          final msg = _messages[index];
                           final isMe = msg.from == 'me';
                           return MessageBubble(message: msg, isMe: isMe);
                         },
                       ),
                     ),
                     Container(
-                      color: const Color(0xFF181A20),
+                      color: cc.card,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 12,
@@ -221,7 +268,7 @@ class _ChatPageState extends State<ChatPage> {
                               child: Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF23272F),
+                                  color: cc.card,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: const Icon(
@@ -244,7 +291,7 @@ class _ChatPageState extends State<ChatPage> {
                               child: Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF23272F),
+                                  color: cc.card,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: const Icon(
@@ -260,21 +307,21 @@ class _ChatPageState extends State<ChatPage> {
                           Expanded(
                             child: Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF23272F),
+                                color: cc.card,
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               child: TextField(
                                 controller: _ctrl,
-                                cursorColor: Colors.white,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                cursorColor: cc.text,
+                                style: TextStyle(
+                                  color: cc.text,
                                   fontSize: 16,
                                 ),
                                 decoration: InputDecoration(
                                   filled: false,
                                   hintText: 'Type a message',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.white54,
+                                  hintStyle: TextStyle(
+                                    color: cc.textMuted,
                                   ),
                                   border: InputBorder.none,
                                   contentPadding: const EdgeInsets.symmetric(
@@ -283,6 +330,16 @@ class _ChatPageState extends State<ChatPage> {
                                   ),
                                 ),
                                 onSubmitted: (_) => _send(),
+                                onChanged: (text) {
+                                  if (widget.contact != null) {
+                                    final svc = context.read<ChatService>();
+                                    if (text.isNotEmpty) {
+                                      svc.sendTypingIndicator(widget.contact!.id);
+                                    } else {
+                                      svc.sendStopTypingIndicator(widget.contact!.id);
+                                    }
+                                  }
+                                },
                               ),
                             ),
                           ),
@@ -308,7 +365,7 @@ class _ChatPageState extends State<ChatPage> {
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.18),
+                                      color: Colors.black.withValues(alpha: 0.18),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -329,8 +386,8 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 // Arrow button to scroll to bottom
                 Positioned(
-                  right: 16,
-                  bottom: 90,
+                  right: Responsive.horizontal(context, 16),
+                  bottom: Responsive.vertical(context, 90),
                   child: AnimatedBuilder(
                     animation: _scroll,
                     builder: (context, child) {
@@ -356,9 +413,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ),
               ],
-            );
-          },
-        ),
+            ),
       ),
     );
   }

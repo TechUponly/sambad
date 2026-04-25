@@ -1,0 +1,70 @@
+{
+  "info": {
+    "name": "Sambad Admin Backend API",
+    "_postman_id": "b1e2c3d4-5678-1234-9abc-def012345678",
+    "description": "API collection for Sambad Admin Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "http://localhost:5050/", "protocol": "http", "host": ["localhost"], "port": "5050", "path": [""] }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"your_username\",\n  \"password\": \"your_password\"\n}"
+        },
+        "url": { "raw": "http://localhost:5050/login", "protocol": "http", "host": ["localhost"], "port": "5050", "path": ["login"] }
+      }
+    },
+    {
+      "name": "Get Analytics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "http://localhost:5050/analytics", "protocol": "http", "host": ["localhost"], "port": "5050", "path": ["analytics"] }
+      }
+    },
+    {
+      "name": "Get Activity",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "http://localhost:5050/activity", "protocol": "http", "host": ["localhost"], "port": "5050", "path": ["activity"] }
+      }
+    },
+    {
+      "name": "Get Users",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "http://localhost:5050/users", "protocol": "http", "host": ["localhost"], "port": "5050", "path": ["users"] }
+      }
+    },
+    {
+      "name": "Get Messages",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "http://localhost:5050/messages", "protocol": "http", "host": ["localhost"], "port": "5050", "path": ["messages"] }
+      }
+    },
+    {
+      "name": "Get Contacts",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "http://localhost:5050/contacts", "protocol": "http", "host": ["localhost"], "port": "5050", "path": ["contacts"] }
+      }
+    }
+  ]
+}

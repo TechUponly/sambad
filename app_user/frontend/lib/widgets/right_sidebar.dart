@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class RightSidebar extends StatelessWidget {
   final VoidCallback? onAddContact;
@@ -12,13 +13,13 @@ class RightSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 80,
-      decoration: const BoxDecoration(
-        color: Color(0xFF181A20),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: AppColors.of(context).card,
+        borderRadius: const BorderRadius.only(
           topRight: Radius.circular(24),
           bottomRight: Radius.circular(24),
         ),
-        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(-2, 0))],
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(-2, 0))],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

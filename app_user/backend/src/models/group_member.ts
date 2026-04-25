@@ -1,19 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
-import { Group } from './group';
-import { User } from './user';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity('group_members')
 export class GroupMember {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Group, group => group.id)
-  @JoinColumn({ name: 'group_id' })
-  group: Group;
+  @Column({ name: 'group_id', nullable: true })
+  group_id: string;
 
-  @ManyToOne(() => User, user => user.id)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @Column({ name: 'user_id', nullable: true })
+  user_id: string;
+
+  @Column({ default: 'member', nullable: true })
+  role: string; // 'admin' | 'member'
 
   @CreateDateColumn()
   joined_at: Date;

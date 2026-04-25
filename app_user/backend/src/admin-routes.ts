@@ -1,7 +1,14 @@
 import { Router } from 'express';
 import { AppDataSource } from './db';
+import admin from './firebase-init';
+import { getOnlineUserIds } from './websocket';
 
 const router = Router();
+
+// Get online user IDs
+router.get('/online', (req, res) => {
+  res.json({ onlineUserIds: getOnlineUserIds() });
+});
 
 // Get analytics
 router.get('/analytics', async (req, res) => {
@@ -47,11 +54,10 @@ router.get('/activity', async (req, res) => {
     const messageRepo = AppDataSource.getRepository('Message');
     const contactRepo = AppDataSource.getRepository('Contact');
     
-    // Get recent messages and contacts
     const recentMessages = await messageRepo.find({
       order: { timestamp: 'DESC' },
       take: 10,
-      relations: ['from', 'to']
+      relations: ['from_user', 'to_user']
     });
     
     const recentContacts = await contactRepo.find({
@@ -59,7 +65,6 @@ router.get('/activity', async (req, res) => {
       take: 10
     });
     
-    // Format activity feed
     const activity = [
       ...recentMessages.map(m => ({
         type: 'message',
@@ -77,6 +82,146 @@ router.get('/activity', async (req, res) => {
   } catch (error) {
     console.error('Activity error:', error);
     res.status(500).json({ error: 'Failed to fetch activity' });
+  }
+});
+
+// ── Push Notifications ───────────────────────────────────────
+
+// Send notification to users via FCM
+router.post('/notifications/send', async (req, res) => {
+  try {
+    const userRepo = AppDataSource.getRepository('User');
+    const notificationRepo = AppDataSource.getRepository('Notification');
+    const { title, body, audience, target_user_ids } = req.body;
+
+    if (!title || !body) {
+      return res.status(400).json({ error: 'title and body are required' });
+    }
+
+    // Get target users with FCM tokens
+    let users: any[];
+    if (audience === 'specific' && target_user_ids?.length) {
+      users = await userRepo
+        .createQueryBuilder('user')
+        .where('user.id IN (:...ids)', { ids: target_user_ids })
+        .andWhere('user.fcm_token IS NOT NULL')
+        .getMany();
+    } else {
+      users = await userRepo
+        .createQueryBuilder('user')
+        .where('user.fcm_token IS NOT NULL')
+        .getMany();
+    }
+
+    const tokens = users.map((u: any) => u.fcm_token).filter(Boolean);
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    if (tokens.length > 0) {
+      const batchSize = 500;
+      for (let i = 0; i < tokens.length; i += batchSize) {
+        const batch = tokens.slice(i, i + batchSize);
+        try {
+          const response = await admin.messaging().sendEachForMulticast({
+            tokens: batch,
+            notification: { title, body },
+            android: { priority: 'high' as const },
+            apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+          });
+          sentCount += response.successCount;
+          failedCount += response.failureCount;
+        } catch (fcmError) {
+          console.error('FCM batch error:', fcmError);
+          failedCount += batch.length;
+        }
+      }
+    }
+
+    // Save notification record
+    const notification = notificationRepo.create({
+      title,
+      body,
+      audience: audience || 'all',
+      target_user_ids: target_user_ids ? JSON.stringify(target_user_ids) : null,
+      sent_count: sentCount,
+      failed_count: failedCount,
+    });
+    const saved = await notificationRepo.save(notification);
+
+    res.json({
+      ...saved,
+      total_tokens: tokens.length,
+      sent_count: sentCount,
+      failed_count: failedCount,
+    });
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    res.status(500).json({ error: 'Failed to send notification' });
+  }
+});
+
+// List sent notifications
+router.get('/notifications', async (req, res) => {
+  try {
+    const notificationRepo = AppDataSource.getRepository('Notification');
+    const notifications = await notificationRepo.find({
+      order: { created_at: 'DESC' },
+      take: 50,
+    });
+    res.json(notifications);
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Update user status (ban/deactivate/activate)
+router.put('/users/:id/status', async (req, res) => {
+  try {
+    const userRepo = AppDataSource.getRepository('User');
+    const { status } = req.body;
+    if (!['active', 'banned', 'deactivated'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be: active, banned, or deactivated' });
+    }
+    const user = await userRepo.findOne({ where: { id: req.params.id } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    (user as any).status = status;
+    await userRepo.save(user);
+    res.json({ success: true, userId: req.params.id, status });
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// ── Feedback ──────────────────────────────────────────────
+// GET all feedback (admin)
+router.get('/feedback', async (req, res) => {
+  try {
+    const feedbackRepo = AppDataSource.getRepository('UserFeedback');
+    const feedback = await feedbackRepo.find({ order: { created_at: 'DESC' } });
+    res.json(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({ error: 'Failed to fetch feedback' });
+  }
+});
+
+// PUT feedback status (admin mark as read/resolved)
+router.put('/feedback/:id', async (req, res) => {
+  try {
+    const feedbackRepo = AppDataSource.getRepository('UserFeedback');
+    const fb = await feedbackRepo.findOne({ where: { id: req.params.id } });
+    if (!fb) return res.status(404).json({ error: 'Feedback not found' });
+    if (req.body.status) (fb as any).status = req.body.status;
+    await feedbackRepo.save(fb);
+    res.json(fb);
+  } catch (error) {
+    console.error('Error updating feedback:', error);
+    res.status(500).json({ error: 'Failed to update feedback' });
   }
 });
 

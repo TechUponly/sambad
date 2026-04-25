@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/contact.dart';
 import 'package:provider/provider.dart';
 import '../services/chat_service.dart';
+import '../theme/app_colors.dart';
+import '../utils/responsive.dart';
+import '../utils/phone_validator.dart';
 
 class ContactTile extends StatelessWidget {
   final Contact contact;
@@ -10,23 +14,188 @@ class ContactTile extends StatelessWidget {
 
   const ContactTile({super.key, required this.contact, this.onTap, this.unreadCount = 0});
 
+  void _showEditDialog(BuildContext context, ChatService svc) {
+    final nameCtrl = TextEditingController(text: contact.name);
+    final phoneCtrl = TextEditingController(text: contact.phone.replaceAll(RegExp(r'^\+\d{1,3}'), ''));
+    String countryCode = '+91';
+    // Try to extract country code from existing phone
+    final phoneMatch = RegExp(r'^(\+\d{1,3})(\d+)$').firstMatch(contact.phone);
+    if (phoneMatch != null) {
+      countryCode = phoneMatch.group(1)!;
+      phoneCtrl.text = phoneMatch.group(2)!;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final tc = AppColors.of(ctx);
+          return Dialog(
+          backgroundColor: tc.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Edit Contact', style: TextStyle(color: tc.text, fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: nameCtrl,
+                  style: TextStyle(color: tc.text),
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    labelStyle: TextStyle(color: tc.textMuted),
+                    prefixIcon: const Icon(Icons.person, color: AppColors.primaryBlue),
+                    filled: true,
+                    fillColor: tc.text.withValues(alpha: 0.08),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        final codes = ['+91', '+1', '+44', '+61', '+86', '+81', '+49', '+33', '+971', '+92', '+880', '+65'];
+                        final selected = await showDialog<String>(
+                          context: ctx,
+                          builder: (c) => SimpleDialog(
+                            backgroundColor: tc.card,
+                            title: Text('Country Code', style: TextStyle(color: tc.text)),
+                            children: codes.map((cc) => SimpleDialogOption(
+                              onPressed: () => Navigator.pop(c, cc),
+                              child: Text(cc, style: TextStyle(color: tc.text)),
+                            )).toList(),
+                          ),
+                        );
+                        if (selected != null) setDialogState(() => countryCode = selected);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: tc.text.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(countryCode, style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold)),
+                            const Icon(Icons.arrow_drop_down, color: Colors.grey, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: phoneCtrl,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(color: tc.text),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(PhoneValidator.getExpectedDigits(countryCode)),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Phone',
+                          labelStyle: TextStyle(color: tc.textMuted),
+                          filled: true,
+                          fillColor: tc.text.withValues(alpha: 0.08),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text('Cancel', style: TextStyle(color: tc.textSecondary)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        final newName = nameCtrl.text.trim();
+                        final newPhone = '$countryCode${PhoneValidator.cleanPhone(phoneCtrl.text)}';
+                        if (newName.isEmpty) return;
+                        svc.updateContact(contact.id, name: newName, phone: newPhone);
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('$newName updated ✅'), backgroundColor: AppColors.primaryBlue),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      ),
+                      child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final svc = Provider.of<ChatService>(context, listen: false);
+    final svc = Provider.of<ChatService>(context);
+    final ct = AppColors.of(context);
     final isBlocked = svc.blockedContacts.contains(contact.id);
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      leading: CircleAvatar(
-        radius: 26,
-        backgroundColor: Colors.white,
-        child: Text(
-          contact.name.isNotEmpty ? contact.name.substring(0, 1) : '?',
-          style: const TextStyle(color: Colors.black87),
-        ),
+    final isOnline = svc.isOnline(contact.id);
+    return Opacity(
+      opacity: isBlocked ? 0.5 : 1.0,
+      child: ListTile(
+      onTap: isBlocked ? () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${contact.name} is blocked. Unblock to chat.'), backgroundColor: Colors.red.shade700, duration: const Duration(seconds: 2)),
+        );
+      } : onTap,
+      contentPadding: Responsive.paddingSymmetric(context, v: 6, h: 8),
+      leading: Stack(
+        children: [
+          CircleAvatar(
+            radius: Responsive.size(context, 26),
+            backgroundColor: AppColors.avatarColor(contact.name),
+            child: Text(
+              contact.name.isNotEmpty ? contact.name.substring(0, 1).toUpperCase() : '?',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 16)),
+            ),
+          ),
+          if (isOnline)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: ct.card, width: 2),
+                ),
+              ),
+            ),
+        ],
       ),
-      title: Text(contact.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-      subtitle: Text(contact.phone, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      title: Text(contact.name, style: TextStyle(color: isBlocked ? ct.textHint : ct.text, fontWeight: FontWeight.w600, fontSize: Responsive.fontSize(context, 16))),
+      subtitle: isBlocked
+          ? Row(children: [
+              Icon(Icons.block, color: Colors.redAccent, size: Responsive.fontSize(context, 13)),
+              const SizedBox(width: 4),
+              Text('Blocked', style: TextStyle(color: Colors.redAccent, fontSize: Responsive.fontSize(context, 13), fontWeight: FontWeight.w500)),
+            ])
+          : Text(contact.phone, style: TextStyle(color: ct.textSecondary, fontSize: Responsive.fontSize(context, 13))),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -37,10 +206,12 @@ class ContactTile extends StatelessWidget {
               child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 12)),
             ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color(0xFF23272F),
+            icon: Icon(Icons.more_vert, color: ct.textMuted),
+            color: ct.card,
             onSelected: (value) async {
-              if (value == 'delete') {
+              if (value == 'edit') {
+                _showEditDialog(context, svc);
+              } else if (value == 'delete') {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => Dialog(
@@ -49,35 +220,31 @@ class ContactTile extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF23272F), Color(0xFF18181B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: ct.card,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.18),
+                            color: Colors.black.withValues(alpha: 0.18),
                             blurRadius: 32,
                             offset: const Offset(0, 8),
                           ),
                         ],
-                        border: Border.all(color: Colors.redAccent.withOpacity(0.18), width: 1.5),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.18), width: 1.5),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Delete Contact', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22, fontFamily: 'Montserrat')),
+                          Text('Delete Contact', style: TextStyle(color: ct.text, fontWeight: FontWeight.bold, fontSize: 22, fontFamily: 'Montserrat')),
                           const SizedBox(height: 18),
-                          Text('Are you sure you want to delete ${contact.name}?', style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                          Text('Are you sure you want to delete ${contact.name}?', style: TextStyle(color: ct.textSecondary, fontSize: 16)),
                           const SizedBox(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               TextButton(
                                 onPressed: () => Navigator.of(ctx).pop(false),
-                                style: TextButton.styleFrom(foregroundColor: Colors.white70, textStyle: const TextStyle(fontWeight: FontWeight.bold)),
+                                style: TextButton.styleFrom(foregroundColor: ct.textSecondary, textStyle: const TextStyle(fontWeight: FontWeight.bold)),
                                 child: const Text('Cancel'),
                               ),
                               const SizedBox(width: 12),
@@ -90,7 +257,7 @@ class ContactTile extends StatelessWidget {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                   elevation: 6,
-                                  shadowColor: Colors.redAccent.withOpacity(0.18),
+                                  shadowColor: Colors.redAccent.withValues(alpha: 0.18),
                                 ),
                                 child: const Text('Delete'),
                               ),
@@ -118,15 +285,19 @@ class ContactTile extends StatelessWidget {
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'edit',
+                child: Text('Edit', style: TextStyle(color: ct.text)),
+              ),
               if (!isBlocked)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'block',
-                  child: Text('Block', style: TextStyle(color: Colors.white)),
+                  child: Text('Block', style: TextStyle(color: ct.text)),
                 ),
               if (isBlocked)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'unblock',
-                  child: Text('Unblock', style: TextStyle(color: Colors.white)),
+                  child: Text('Unblock', style: TextStyle(color: ct.text)),
                 ),
               const PopupMenuItem(
                 value: 'delete',
@@ -136,6 +307,7 @@ class ContactTile extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

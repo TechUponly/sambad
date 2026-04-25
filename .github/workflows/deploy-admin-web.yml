@@ -1,33 +1,27 @@
 name: Deploy Admin Web
-
 on:
   push:
-    branches: [ main, master ]
+    branches: [ samvad ]
     paths:
       - 'sambad_admin/frontend/**'
   workflow_dispatch:
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 'any'
           channel: 'stable'
-
       - name: Get dependencies
         working-directory: ./sambad_admin/frontend
         run: flutter pub get
-
       - name: Build Flutter Web
         working-directory: ./sambad_admin/frontend
         run: flutter build web --release --base-href /sambad-admin/
-
       - name: Deploy to Azure VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -37,4 +31,3 @@ jobs:
           source: "sambad_admin/frontend/build/web/*"
           target: "/var/www/html/public_html/sambad/sambad_admin/frontend/build/web/"
           strip_components: 4
-

@@ -72,7 +72,7 @@ app_user/backend/
 
 ### User App
 - **Framework**: Flutter
-- **Backend URL**: http://10.0.2.2:4000
+- **Backend URL**: https://web.uponlytech.com/sambad-admin-backend
 - **Theme**: Blue (#5B7FFF)
 
 ### Key Files - DO NOT MODIFY BUSINESS LOGIC

@@ -88,7 +88,7 @@ When `contact_added` event is received:
 The user app can add contacts by calling:
 ```dart
 final response = await http.post(
-  Uri.parse('http://10.0.2.2:4000/api/contacts'),
+  Uri.parse('https://web.uponlytech.com/sambad-admin-backend/api/contacts'),
   headers: {'Content-Type': 'application/json'},
   body: jsonEncode({
     'userId': currentUserId,

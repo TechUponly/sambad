@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'sidebar_button.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
-import 'settings_screen.dart';
 import 'config_screen.dart';
 import 'rights_screen.dart';
 import 'audit_screen.dart';
+import 'feedback_screen.dart';
 import 'analytics_screen.dart';
-import 'logout_screen.dart';
+import 'notifications_screen.dart';
+import 'admin_users_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
@@ -39,47 +40,62 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _selectedIndex = 0;
 
-  final List<_SidebarItem> _sidebarItems = [
-    _SidebarItem('Dashboard', Icons.dashboard),
-    _SidebarItem('Users', Icons.people),
-    _SidebarItem('Analytics', Icons.analytics),
-    _SidebarItem('Profile', Icons.person),
-    _SidebarItem('Settings', Icons.settings),
-    _SidebarItem('Config', Icons.tune),
-    _SidebarItem('Rights', Icons.admin_panel_settings),
-    _SidebarItem('Audit', Icons.history),
-    _SidebarItem('Logout', Icons.logout),
+  // All sidebar items with required roles for visibility
+  static const _allItems = [
+    _SidebarItem('Dashboard', Icons.dashboard, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('App Users', Icons.people, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('Notifications', Icons.notifications_active, ['super_admin', 'admin']),
+    _SidebarItem('Analytics', Icons.analytics, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('Admin Users', Icons.manage_accounts, ['super_admin']),
+    _SidebarItem('Profile', Icons.person, ['super_admin', 'admin', 'moderator', 'viewer']),
+    _SidebarItem('Config', Icons.tune, ['super_admin']),
+    _SidebarItem('Rights', Icons.admin_panel_settings, ['super_admin', 'admin']),
+    _SidebarItem('Audit', Icons.history, ['super_admin', 'admin']),
+    _SidebarItem('Feedback', Icons.feedback, ['super_admin', 'admin']),
+    _SidebarItem('Logout', Icons.logout, ['super_admin', 'admin', 'moderator', 'viewer']),
   ];
 
-  Widget _getSectionWidget(int index) {
-    switch (index) {
-      case 0:
-        return _DashboardContent();
-      case 1:
-        return _UsersContent();
-        return AnalyticsScreen();
-        return Center(child: Text('Analytics Page', style: Theme.of(context).textTheme.headlineMedium));
-      case 3:
-        return ProfileScreen();
-      case 4:
-        return SettingsScreen();
-      case 5:
-        return ConfigScreen();
-      case 6:
-        return RightsScreen();
-      case 7:
-        return AuditScreen();
-      default:
-        return Center(child: Text('Unknown Section'));
+  List<_SidebarItem> get _visibleItems {
+    final role = AdminAuthState.role;
+    return _allItems.where((item) => item.allowedRoles.contains(role)).toList();
+  }
+
+  Widget _getSectionWidget(String label) {
+    switch (label) {
+      case 'Dashboard': return _DashboardContent();
+      case 'App Users': return _UsersContent();
+      case 'Notifications': return const NotificationsScreen();
+      case 'Analytics': return AnalyticsScreen();
+      case 'Admin Users': return const AdminUsersScreen();
+      case 'Profile': return const ProfileScreen();
+      case 'Config': return const ConfigScreen();
+      case 'Rights': return const RightsScreen();
+      case 'Audit': return const AuditScreen();
+      case 'Feedback': return const FeedbackScreen();
+      default: return Center(child: Text('Unknown: $label'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final items = _visibleItems;
+    final safeIndex = _selectedIndex < items.length ? _selectedIndex : 0;
+    final currentItem = items[safeIndex];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sambad Admin Dashboard'),
+        title: const Text('Samvad Admin'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(children: [
+              Icon(Icons.person, size: 18, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text(AdminAuthState.username, style: const TextStyle(fontSize: 14, color: Colors.white70)),
+            ]),
+          ),
+        ],
       ),
       body: Row(
         children: [
@@ -93,22 +109,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 Expanded(
                   child: ListView(
                     children: [
-                      for (int i = 0; i < _sidebarItems.length; i++)
+                      for (int i = 0; i < items.length; i++)
                         SidebarButton(
-                          icon: _sidebarItems[i].icon,
-                          label: _sidebarItems[i].label,
-                          color: i == _selectedIndex ? theme.colorScheme.primary : theme.colorScheme.secondary.withOpacity(0.2),
-                          textColor: i == _selectedIndex ? Colors.white : null,
+                          icon: items[i].icon,
+                          label: items[i].label,
+                          color: i == safeIndex ? theme.colorScheme.primary : theme.colorScheme.secondary.withOpacity(0.2),
+                          textColor: i == safeIndex ? Colors.white : null,
                           onTap: () {
-                            if (_sidebarItems[i].label == 'Logout') {
+                            if (items[i].label == 'Logout') {
+                              AdminAuthState.clear();
                               Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (context) => AdminLoginPage()),
+                                MaterialPageRoute(builder: (context) => const AdminLoginPage()),
                                 (route) => false,
                               );
                             } else {
-                              setState(() {
-                                _selectedIndex = i;
-                              });
+                              setState(() => _selectedIndex = i);
                             }
                           },
                         ),
@@ -122,7 +137,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: _getSectionWidget(_selectedIndex),
+              child: _getSectionWidget(currentItem.label),
             ),
           ),
         ],
@@ -134,7 +149,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 class _SidebarItem {
   final String label;
   final IconData icon;
-  const _SidebarItem(this.label, this.icon);
+  final List<String> allowedRoles;
+  const _SidebarItem(this.label, this.icon, this.allowedRoles);
 }
 
 // Dashboard content widget
@@ -146,8 +162,7 @@ class _DashboardContent extends StatefulWidget {
 class _DashboardContentState extends State<_DashboardContent> {
   late Future<Map<String, dynamic>> _analyticsFuture;
   late Future<List<dynamic>> _activityFuture;
-  String selectedCountry = 'India';
-  final List<String> countries = ['India', 'USA', 'UK', 'Germany', 'Australia'];
+  int _onlineCount = 0;
 
   // Real-time event state
   List<dynamic> _liveActivity = [];
@@ -158,9 +173,14 @@ class _DashboardContentState extends State<_DashboardContent> {
     super.initState();
     _analyticsFuture = ApiService().fetchDashboardAnalytics();
     _activityFuture = ApiService().fetchRecentActivity();
+    _fetchOnlineCount();
     // Connect to WebSocket for real-time updates
+    final wsUrl = ApiService.baseUrl
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://')
+        .replaceFirst('/sambad-admin-backend', '/sambad-backend');
     AdminWebSocket().connect(
-      url: 'ws://localhost:4000',
+      url: wsUrl,
       onEvent: (event) {
         if (event['type'] == 'contact_added') {
           setState(() {
@@ -180,6 +200,15 @@ class _DashboardContentState extends State<_DashboardContent> {
         // Optionally update analytics if event includes new stats
       },
     );
+  }
+
+  Future<void> _fetchOnlineCount() async {
+    try {
+      final ids = await ApiService().fetchOnlineUsers();
+      if (mounted) setState(() => _onlineCount = ids.length);
+    } catch (_) {
+      // Silently fail — online count is non-critical
+    }
   }
 
   @override
@@ -207,23 +236,6 @@ class _DashboardContentState extends State<_DashboardContent> {
                   ),
                 ],
               ),
-              // Country filter dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.secondary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButton<String>(
-                  value: selectedCountry,
-                  underline: const SizedBox.shrink(),
-                  icon: const Icon(Icons.arrow_drop_down),
-                  style: theme.textTheme.titleMedium,
-                  dropdownColor: theme.colorScheme.surface,
-                  onChanged: (val) => setState(() => selectedCountry = val!),
-                  items: countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                ),
-              ),
               CircleAvatar(
                 radius: 28,
                 backgroundColor: theme.colorScheme.secondary,
@@ -238,7 +250,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               } else if (snapshot.hasError) {
-                return Center(child: Text('Failed to load analytics: \\${snapshot.error}'));
+                return Center(child: Text('Failed to load analytics: ${snapshot.error}'));
               } else if (!snapshot.hasData) {
                 return const Center(child: Text('No analytics data.'));
               }
@@ -276,6 +288,12 @@ class _DashboardContentState extends State<_DashboardContent> {
                     value: data['inactiveUsers']?.toString() ?? '-',
                     color: Colors.redAccent,
                   ),
+                  _StatCard(
+                    icon: Icons.wifi,
+                    label: 'Online Now',
+                    value: _onlineCount.toString(),
+                    color: Colors.teal,
+                  ),
                 ],
               );
             },
@@ -300,7 +318,7 @@ class _DashboardContentState extends State<_DashboardContent> {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     } else if (snapshot.hasError) {
-                      return Center(child: Text('Failed to load activity: \\${snapshot.error}'));
+                      return Center(child: Text('Failed to load activity: ${snapshot.error}'));
                     } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Center(child: Text('No recent activity.'));
                     }
@@ -348,7 +366,7 @@ class _UsersContentState extends State<_UsersContent> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return Center(child: Text('Failed to load users: \\${snapshot.error}'));
+          return Center(child: Text('Failed to load users: ${snapshot.error}'));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No users found.'));
         }
@@ -517,12 +535,14 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                           Icon(Icons.timeline, color: Colors.blueAccent, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Activity Score: ', style: theme.textTheme.bodySmall),
-                                          Text('${((user['active'] ?? false) ? 87 : 42)}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          // TODO: Replace with real per-user activity score from backend
+                                          Text('N/A', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 18),
                                           Icon(Icons.group, color: Colors.green, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Connections: ', style: theme.textTheme.bodySmall),
-                                          Text('${(user['active'] ?? false) ? 24 : 7}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          // TODO: Replace with real contacts count from backend
+                                          Text('N/A', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
@@ -531,7 +551,8 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                           Icon(Icons.chat_bubble, color: Colors.deepPurple, size: 18),
                                           const SizedBox(width: 6),
                                           Text('Chats: ', style: theme.textTheme.bodySmall),
-                                          Text('${(user['active'] ?? false) ? 132 : 12}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                                          // TODO: Replace with real messages count from backend
+                                          Text('N/A', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 18),
                                           Icon(Icons.location_on, color: Colors.redAccent, size: 18),
                                           const SizedBox(width: 6),
@@ -547,6 +568,20 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 14),
+                              // User Management Actions
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (user['active'] == true) ...[
+                                    _actionButton(context, 'Deactivate', Icons.pause_circle_outline, Colors.orange, () => _updateStatus(context, user['id'], 'deactivated')),
+                                    const SizedBox(width: 8),
+                                    _actionButton(context, 'Ban', Icons.block, Colors.red, () => _updateStatus(context, user['id'], 'banned')),
+                                  ] else ...[
+                                    _actionButton(context, 'Activate', Icons.check_circle_outline, Colors.green, () => _updateStatus(context, user['id'], 'active')),
+                                  ],
+                                ],
+                              ),
                             ],
                           ],
                         ),
@@ -560,6 +595,60 @@ class _ExpandableUserListState extends State<_ExpandableUserList> {
         ],
       ),
     );
+  }
+  Widget _actionButton(BuildContext context, String label, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _updateStatus(BuildContext context, String userId, String status) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${status == 'banned' ? 'Ban' : status == 'deactivated' ? 'Deactivate' : 'Activate'} User?'),
+        content: Text('Are you sure you want to set this user\'s status to "$status"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: status == 'active' ? Colors.green : Colors.red),
+            child: Text(status == 'active' ? 'Activate' : status == 'banned' ? 'Ban' : 'Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService().updateUserStatus(userId, status);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ User $status successfully'), backgroundColor: Colors.green),
+        );
+      }
+      // Refresh user list
+      setState(() {
+        final user = widget.users.firstWhere((u) => u['id'] == userId, orElse: () => null);
+        if (user != null) {
+          user['active'] = status == 'active';
+          user['status'] = status;
+        }
+      });
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 

@@ -19,7 +19,6 @@ class AppTheme {
         secondary: primaryBlue,
         tertiary: accentGreen,
         surface: cardWhite,
-        background: bgLight,
       ),
       scaffoldBackgroundColor: bgLight,
       appBarTheme: const AppBarTheme(
@@ -38,7 +37,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         color: cardWhite,
-        shadowColor: Colors.black.withOpacity(0.05),
+        shadowColor: Colors.black.withValues(alpha: 0.05),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'services/chat_service.dart';
-import 'models/contact.dart';
 import 'widgets/contact_tile.dart';
 import 'chat_page.dart';
 import 'ai_bot_chat_page.dart';
 import 'add_contact_dialog.dart';
 import 'profile_section_page.dart';
 import 'create_group_dialog.dart';
-
-const Color kPrimaryBlue = Color(0xFF5B7FFF);
-const Color kAccentGreen = Color(0xFF00C853);
-const Color kBgDark = Color(0xFF181A20);
-const Color kBgCard = Color(0xFF23272F);
+import 'group_info_page.dart';
+import 'screens/login_screen.dart';
+import 'theme/app_colors.dart';
+import 'utils/responsive.dart';
+import 'services/contacts_sync_service.dart';
+import 'services/theme_provider.dart';
+import 'screens/privacy_detail_page.dart';
+import 'config/app_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,11 +29,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+  DateTime? _lastBackPress;
   int _currentIndex = 0;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   String? _profileName;
+  String? _currentPhone;
   late AnimationController _fabAnimController;
 
   @override
@@ -45,7 +54,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _loadProfile() async {
-    setState(() => _profileName = 'Shamrai');
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('current_user_name') ?? 
+                 prefs.getString('profile_name') ?? 
+                 'User';
+    _currentPhone = prefs.getString('current_user_phone');
+    if (mounted) setState(() => _profileName = name);
   }
 
   void _createGroup(BuildContext context) {
@@ -57,49 +71,70 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgDark,
-      appBar: _buildAppBar(),
-      body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
-      bottomNavigationBar: _buildBottomNav(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final now = DateTime.now();
+        if (_lastBackPress != null && now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
+          // Allow exit on double-tap
+          Navigator.of(context).pop();
+        } else {
+          _lastBackPress = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Press back again to exit'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.of(context).bg,
+        appBar: _buildAppBar(),
+        body: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBody()),
+        bottomNavigationBar: _buildBottomNav(),
+      ),
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: kBgCard,
+      backgroundColor: AppColors.of(context).card,
       elevation: 0,
-      leadingWidth: 56,
+      leadingWidth: Responsive.size(context, 56),
       leading: IconButton(
         icon: CircleAvatar(
-          backgroundColor: kPrimaryBlue,
-          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'S', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          radius: Responsive.size(context, 18),
+          backgroundColor: AppColors.avatarColor(_profileName ?? 'U'),
+          child: Text(_profileName?.substring(0, 1).toUpperCase() ?? 'U', style: TextStyle(color: AppColors.of(context).text, fontWeight: FontWeight.bold, fontSize: Responsive.fontSize(context, 14))),
         ),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage())),
+        onPressed: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage()));
+          _loadProfile(); // Refresh name after returning from profile
+        },
       ),
-      actions: [
-        Container(
-          width: 240,
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          child: TextField(
-            controller: _searchController,
-            focusNode: _searchFocus,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Search contacts...',
-              hintStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: Colors.white10,
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: kPrimaryBlue, width: 2)),
-              prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
-              suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54, size: 18), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
-            ),
-            onChanged: (value) => setState(() => _searchQuery = value),
+      title: SizedBox(
+        height: Responsive.size(context, 40),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocus,
+          style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 14)),
+          decoration: InputDecoration(
+            hintText: 'Search contacts...',
+            hintStyle: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 14)),
+            filled: true,
+            fillColor: AppColors.of(context).text.withValues(alpha: 0.08),
+            contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: Responsive.horizontal(context, 12)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24)), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 24)), borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2)),
+            prefixIcon: Icon(Icons.search, color: AppColors.of(context).textMuted, size: Responsive.size(context, 20)),
+            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear, color: AppColors.of(context).textMuted, size: Responsive.size(context, 18)), onPressed: () { setState(() { _searchQuery = ''; _searchController.clear(); }); _searchFocus.unfocus(); }) : null,
           ),
+          onChanged: (value) => setState(() => _searchQuery = value),
         ),
-      ],
+      ),
     );
   }
 
@@ -116,44 +151,72 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildChatsTab() {
     return Consumer<ChatService>(
       builder: (context, chatService, _) {
-        final allContacts = chatService.contacts;
-        final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.phone.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+        final allContacts = chatService.contacts.toList();
+        final filteredContacts = _searchQuery.isEmpty ? allContacts : allContacts.where((c) {
+          final q = _searchQuery.toLowerCase();
+          if (c.name.toLowerCase().contains(q)) return true;
+          if (c.phone.toLowerCase().contains(q)) return true;
+          // Also match if query looks like a phone number (strip formatting)
+          final queryDigits = q.replaceAll(RegExp(r'[^\d]'), '');
+          if (queryDigits.length >= 3) {
+            final phoneDigits = c.phone.replaceAll(RegExp(r'[^\d]'), '');
+            if (phoneDigits.contains(queryDigits)) return true;
+          }
+          return false;
+        }).toList();
 
         return Column(
           children: [
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
+              margin: Responsive.paddingAll(context, 16),
+              padding: Responsive.paddingAll(context, 20),
               decoration: BoxDecoration(
-                color: kPrimaryBlue,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: kPrimaryBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                color: AppColors.primaryBlue,
+                borderRadius: BorderRadius.circular(Responsive.radius(context, 16)),
+                boxShadow: [BoxShadow(color: AppColors.primaryBlue.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Expanded(child: Text('Private Sambad welcomes you!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_profileName != null && _profileName != 'User' ? 'Welcome back, $_profileName!' : 'Private Samvad welcomes you!', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 18), fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        if (_currentPhone != null && _currentPhone!.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(top: Responsive.vertical(context, 4)),
+                            child: Text(_currentPhone!, style: TextStyle(color: AppColors.of(context).textSecondary, fontSize: Responsive.fontSize(context, 13))),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
+              margin: Responsive.paddingSymmetric(context, h: 16),
+              padding: Responsive.paddingAll(context, 16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [kPrimaryBlue.withOpacity(0.2), kPrimaryBlue.withOpacity(0.1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: kPrimaryBlue.withOpacity(0.3), width: 2),
+                gradient: LinearGradient(colors: [AppColors.primaryBlue.withValues(alpha: 0.2), AppColors.primaryBlue.withValues(alpha: 0.1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(Responsive.radius(context, 20)),
+                border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.3), width: 2),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildActionButton(icon: Icons.person_add_outlined, label: 'Add Contact', onTap: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); }),
                   _buildActionButton(icon: Icons.group_add_outlined, label: 'New Group', onTap: () => _createGroup(context)),
-                  _buildActionButton(icon: Icons.share_outlined, label: 'Invite Friends', onTap: () async { await Share.share('Join me on Sambad! Secure messaging app. Download now!'); }),
+                  _buildActionButton(icon: Icons.share_outlined, label: 'Invite Friends', onTap: () async {
+                    try {
+                      final chatService = context.read<ChatService>();
+                      await Share.share(chatService.inviteText);
+                    } catch (_) {}
+                  }),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; final unread = index % 4 == 0; return Container(margin: const EdgeInsets.symmetric(vertical: 4), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12), border: unread ? const Border(left: BorderSide(color: kPrimaryBlue, width: 2)) : null), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: unread ? 2 : 0)); })),
+            SizedBox(height: Responsive.vertical(context, 16)),
+            if (allContacts.isEmpty) _buildEmptyState() else Expanded(child: ListView.builder(padding: Responsive.paddingSymmetric(context, h: 12), itemCount: filteredContacts.length, itemBuilder: (context, index) { final contact = filteredContacts[index]; return Container(margin: EdgeInsets.symmetric(vertical: Responsive.vertical(context, 4)), decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))), child: ContactTile(contact: contact, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: contact.name, isPrivate: true, contact: contact))); }, unreadCount: 0)); })),
           ],
         );
       },
@@ -166,18 +229,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          splashColor: kPrimaryBlue.withOpacity(0.3),
-          highlightColor: kPrimaryBlue.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+          splashColor: AppColors.primaryBlue.withValues(alpha: 0.3),
+          highlightColor: AppColors.primaryBlue.withValues(alpha: 0.2),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
+            padding: Responsive.paddingSymmetric(context, v: 16, h: 8),
+            decoration: BoxDecoration(color: AppColors.of(context).text.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: Colors.white, size: 28),
-                const SizedBox(height: 6),
-                Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Icon(icon, color: AppColors.of(context).text, size: Responsive.size(context, 28)),
+                SizedBox(height: Responsive.vertical(context, 6)),
+                Text(label, style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -190,21 +253,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Expanded(
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: Responsive.paddingAll(context, 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: kPrimaryBlue.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.chat_bubble_outline, size: 64, color: kPrimaryBlue)),
-              const SizedBox(height: 24),
-              const Text('No chats yet', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              const Text('Start a conversation by adding a contact', style: TextStyle(color: Colors.white60, fontSize: 16), textAlign: TextAlign.center),
-              const SizedBox(height: 32),
+              Container(padding: Responsive.paddingAll(context, 24), decoration: BoxDecoration(color: AppColors.primaryBlue.withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(Icons.chat_bubble_outline, size: Responsive.size(context, 64), color: AppColors.primaryBlue)),
+              SizedBox(height: Responsive.vertical(context, 24)),
+              Text('No chats yet', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
+              SizedBox(height: Responsive.vertical(context, 12)),
+              Text('Start a conversation by adding a contact', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 16)), textAlign: TextAlign.center),
+              SizedBox(height: Responsive.vertical(context, 32)),
               ElevatedButton.icon(
                 onPressed: () { showDialog(context: context, builder: (ctx) => AddContactDialog(onAdd: (contact) async { final svc = context.read<ChatService>(); await svc.addContact(contact); })); },
                 icon: const Icon(Icons.person_add),
                 label: const Text('Add Your First Contact'),
-                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: Responsive.paddingSymmetric(context, h: 24, v: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
               ),
             ],
           ),
@@ -214,7 +277,119 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildGroupsTab() {
-    return Consumer<ChatService>(builder: (context, chatService, _) { final groups = chatService.groups.where((g) => !chatService.blockedGroups.contains(g)).toList(); if (groups.isEmpty) { return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [ const Icon(Icons.groups, size: 64, color: Colors.white54), const SizedBox(height: 16), const Text('No groups yet', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), const SizedBox(height: 12), const Text('Create a group to chat with multiple people', style: TextStyle(color: Colors.white60)), const SizedBox(height: 24), ElevatedButton.icon(onPressed: () => _createGroup(context), icon: const Icon(Icons.group_add), label: const Text('Create Group'), style: ElevatedButton.styleFrom(backgroundColor: kPrimaryBlue, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))), ])); } return ListView.builder(padding: const EdgeInsets.all(16), itemCount: groups.length, itemBuilder: (context, index) { final group = groups[index]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: kBgCard, borderRadius: BorderRadius.circular(12)), child: ListTile(leading: CircleAvatar(backgroundColor: kPrimaryBlue.withOpacity(0.2), child: const Icon(Icons.group, color: kPrimaryBlue)), title: Text(group, style: const TextStyle(color: Colors.white)), subtitle: const Text('Tap to open', style: TextStyle(color: Colors.white60)), onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))); })); }); });
+    return Consumer<ChatService>(builder: (context, chatService, _) {
+      final groups = chatService.groups.toList();
+      if (groups.isEmpty) {
+        return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.groups, size: Responsive.size(context, 64), color: AppColors.of(context).textMuted),
+          SizedBox(height: Responsive.vertical(context, 16)),
+          Text('No groups yet', style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 24), fontWeight: FontWeight.bold)),
+          SizedBox(height: Responsive.vertical(context, 12)),
+          Text('Create a group to chat with multiple people', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 16))),
+          SizedBox(height: Responsive.vertical(context, 24)),
+          ElevatedButton.icon(
+            onPressed: () => _createGroup(context),
+            icon: const Icon(Icons.group_add),
+            label: const Text('Create Group'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue, foregroundColor: Colors.white, padding: Responsive.paddingSymmetric(context, h: 24, v: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12)))),
+          ),
+        ]));
+      }
+      return ListView.builder(
+        padding: Responsive.paddingAll(context, 16),
+        itemCount: groups.length,
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          final isBlocked = chatService.blockedGroups.contains(group);
+          final memberCount = chatService.membersForGroup(group).length;
+          return Opacity(
+            opacity: isBlocked ? 0.5 : 1.0,
+            child: Container(
+              margin: EdgeInsets.only(bottom: Responsive.vertical(context, 8)),
+              decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+              child: ListTile(
+                leading: GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group))),
+                  child: FutureBuilder<SharedPreferences>(
+                    future: SharedPreferences.getInstance(),
+                    builder: (context, snap) {
+                      final photoPath = snap.data?.getString('group_photo_$group');
+                      final hasPhoto = photoPath != null && File(photoPath).existsSync();
+                      return CircleAvatar(
+                        backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2),
+                        backgroundImage: hasPhoto ? FileImage(File(photoPath)) : null,
+                        child: hasPhoto ? null : const Icon(Icons.group, color: AppColors.primaryBlue),
+                      );
+                    },
+                  ),
+                ),
+                title: Text(group, style: TextStyle(color: isBlocked ? AppColors.of(context).textHint : AppColors.of(context).text, fontWeight: FontWeight.w600)),
+                subtitle: isBlocked
+                    ? Row(children: [
+                        Icon(Icons.block, color: Colors.redAccent, size: Responsive.fontSize(context, 13)),
+                        const SizedBox(width: 4),
+                        Text('Blocked', style: TextStyle(color: Colors.redAccent, fontSize: Responsive.fontSize(context, 13))),
+                      ])
+                    : Text(memberCount > 0 ? '$memberCount members' : 'Tap to open', style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 14))),
+                onTap: isBlocked
+                    ? () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group is blocked. Unblock to chat.'), backgroundColor: Colors.red.shade700))
+                    : () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(name: group, isPrivate: false))),
+                trailing: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: AppColors.of(context).textMuted),
+                  color: AppColors.of(context).card,
+                  onSelected: (value) async {
+                    if (value == 'info') {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoPage(groupName: group)));
+                    } else if (value == 'exit') {
+                      final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.of(context).card,
+                        title: Text('Exit Group', style: TextStyle(color: AppColors.of(context).text)),
+                        content: Text('Leave "$group"?', style: TextStyle(color: AppColors.of(context).textSecondary)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange), child: const Text('Exit')),
+                        ],
+                      ));
+                      if (confirm == true) {
+                        chatService.removeGroupLocally(group);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Left "$group"'), backgroundColor: Colors.orange));
+                      }
+                    } else if (value == 'block') {
+                      chatService.blockGroup(group);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group blocked')));
+                    } else if (value == 'unblock') {
+                      chatService.unblockGroup(group);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group unblocked')));
+                    } else if (value == 'delete') {
+                      final confirm = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.of(context).card,
+                        title: Text('Delete Group', style: TextStyle(color: AppColors.of(context).text)),
+                        content: Text('Delete "$group" permanently?', style: TextStyle(color: AppColors.of(context).textSecondary)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Delete')),
+                        ],
+                      ));
+                      if (confirm == true) {
+                        chatService.removeGroupLocally(group);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$group deleted'), backgroundColor: Colors.redAccent));
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(value: 'info', child: Text('Group Info', style: TextStyle(color: AppColors.of(context).text))),
+                    if (!isBlocked) PopupMenuItem(value: 'block', child: Text('Block', style: TextStyle(color: AppColors.of(context).text))),
+                    if (isBlocked) PopupMenuItem(value: 'unblock', child: Text('Unblock', style: TextStyle(color: AppColors.of(context).text))),
+                    const PopupMenuItem(value: 'exit', child: Text('Exit Group', style: TextStyle(color: Colors.orange))),
+                    const PopupMenuItem(value: 'delete', child: Text('Delete Group', style: TextStyle(color: Colors.redAccent))),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 
   Widget _buildAIBotTab() {
@@ -222,21 +397,489 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildSettingsTab() {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: const [ Icon(Icons.settings, size: 64, color: Colors.white54), SizedBox(height: 16), Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)), SizedBox(height: 8), Text('Coming soon', style: TextStyle(color: Colors.white60)), ]));
+    final c = AppColors.of(context);
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final prefs = snapshot.data!;
+        bool notifEnabled = prefs.getBool('notifications_enabled') ?? true;
+        bool contactsSynced = prefs.getBool('contacts_synced') ?? false;
+        bool showOnline = prefs.getBool('show_online_status') ?? true;
+
+        return StatefulBuilder(
+          builder: (context, setInnerState) {
+            final themeProvider = context.watch<ThemeProvider>();
+
+            return ListView(
+              padding: Responsive.paddingAll(context, 16),
+              children: [
+                // ── Account ──
+                _settingsHeader('Account'),
+                _settingsTile(
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                  subtitle: _profileName ?? 'Edit your profile',
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSectionPage()));
+                    _loadProfile();
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Contacts ──
+                _settingsHeader('Contacts'),
+                _settingsTile(
+                  icon: Icons.contacts_outlined,
+                  title: 'Sync Phone Contacts',
+                  subtitle: contactsSynced ? 'Contacts synced ✅' : 'Find friends on Samvad',
+                  onTap: () async {
+                    try {
+                      final hasPermission = await ContactsSyncService.requestContactsPermission();
+                      if (!hasPermission) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Contact permission denied'), backgroundColor: Colors.red),
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Syncing contacts...'), backgroundColor: AppColors.primaryBlue, duration: Duration(seconds: 1)),
+                      );
+                      final result = await ContactsSyncService.syncContacts(context: context);
+                      if (!context.mounted) return;
+                      if (result['success'] == true) {
+                        setInnerState(() => contactsSynced = true);
+                        final added = result['addedLocally'] ?? 0;
+                        final total = result['totalContacts'] ?? 0;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✅ $added new contacts added ($total total from phone)'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Preferences ──
+                _settingsHeader('Preferences'),
+                _settingsTile(
+                  icon: themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                  title: 'Dark Mode',
+                  subtitle: themeProvider.isDarkMode ? 'Dark theme active' : 'Light theme active',
+                  trailing: Switch(
+                    value: themeProvider.isDarkMode,
+                    onChanged: (val) => themeProvider.setDarkMode(val),
+                    activeThumbColor: AppColors.primaryBlue,
+                  ),
+                ),
+                _settingsTile(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notifications',
+                  subtitle: notifEnabled ? 'Notifications enabled' : 'Notifications disabled',
+                  trailing: Switch(
+                    value: notifEnabled,
+                    onChanged: (val) async {
+                      await prefs.setBool('notifications_enabled', val);
+                      setInnerState(() => notifEnabled = val);
+                    },
+                    activeThumbColor: AppColors.primaryBlue,
+                  ),
+                ),
+                _settingsTile(
+                  icon: Icons.visibility,
+                  title: 'Show Online Status',
+                  subtitle: showOnline ? 'Others can see when you\'re online' : 'Your online status is hidden',
+                  trailing: Switch(
+                    value: showOnline,
+                    onChanged: (val) async {
+                      await prefs.setBool('show_online_status', val);
+                      setInnerState(() => showOnline = val);
+                    },
+                    activeThumbColor: AppColors.primaryBlue,
+                  ),
+                ),
+                _settingsTile(
+                  icon: Icons.language,
+                  title: 'Language',
+                  subtitle: 'English',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('More languages coming soon!'), backgroundColor: AppColors.primaryBlue),
+                    );
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Privacy & Security ──
+                _settingsHeader('Privacy & Security'),
+                _settingsTile(
+                  icon: Icons.shield_outlined,
+                  title: 'Privacy & Security',
+                  subtitle: 'How we protect your data',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyDetailPage()));
+                  },
+                ),
+                _settingsTile(
+                  icon: Icons.block,
+                  title: 'Blocked Contacts',
+                  subtitle: 'Manage blocked users',
+                  onTap: () {
+                    final chatService = context.read<ChatService>();
+                    final blocked = chatService.blockedContacts;
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: c.card,
+                        title: Text('Blocked Contacts', style: TextStyle(color: c.text)),
+                        content: blocked.isEmpty
+                            ? Text('No blocked contacts', style: TextStyle(color: c.textMuted))
+                            : SizedBox(
+                                width: double.maxFinite,
+                                height: 200,
+                                child: ListView.builder(
+                                  itemCount: blocked.length,
+                                  itemBuilder: (_, i) => ListTile(
+                                    title: Text(blocked[i], style: TextStyle(color: c.text)),
+                                    trailing: TextButton(
+                                      onPressed: () {
+                                        chatService.unblockContact(blocked[i]);
+                                        Navigator.pop(ctx);
+                                      },
+                                      child: const Text('Unblock', style: TextStyle(color: AppColors.primaryBlue)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Close', style: TextStyle(color: AppColors.primaryBlue)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── Feedback ──
+                _settingsHeader('Feedback'),
+                _settingsTile(
+                  icon: Icons.feedback_outlined,
+                  title: 'Send Feedback',
+                  subtitle: 'Help us improve Private Samvad',
+                  onTap: () => _showFeedbackDialog(context, c),
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 16)),
+
+                // ── About ──
+                _settingsHeader('About'),
+                _settingsTile(
+                  icon: Icons.info_outline,
+                  title: 'About Private Samvad',
+                  subtitle: 'Version 4.1.0+12',
+                  onTap: () {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'Private Samvad',
+                      applicationVersion: '4.1.0',
+                      applicationIcon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.lock, color: Colors.white, size: 32),
+                      ),
+                      children: [const Text('A secure, private messaging app with end-to-end encryption.')],
+                    );
+                  },
+                ),
+                _settingsTile(
+                  icon: Icons.description_outlined,
+                  title: 'Privacy Policy',
+                  subtitle: 'Read our privacy policy',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(title: Text('Privacy Policy', style: TextStyle(color: c.text)), backgroundColor: c.card, iconTheme: IconThemeData(color: c.text)),
+                        backgroundColor: c.bg,
+                        body: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(
+                            'Private Samvad respects your privacy.\n\n'
+                            '• Messages are end-to-end encrypted\n'
+                            '• We do not read or store your messages\n'
+                            '• Private conversations auto-delete\n'
+                            '• Your data is never shared with third parties\n'
+                            '• You can delete your account at any time\n\n'
+                            'For questions, contact us at support@uponlytech.com',
+                            style: TextStyle(color: c.textSecondary, fontSize: 16, height: 1.6),
+                          ),
+                        ),
+                      ),
+                    ));
+                  },
+                ),
+
+                SizedBox(height: Responsive.vertical(context, 24)),
+
+                // ── Sign Out ──
+                Container(
+                  margin: Responsive.paddingSymmetric(context, h: 4),
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: c.card,
+                          title: Text('Sign Out', style: TextStyle(color: c.text)),
+                          content: Text('Are you sure you want to sign out?', style: TextStyle(color: c.textMuted)),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm != true || !mounted) return;
+                      await context.read<ChatService>().reset();
+                      await context.read<ChatService>().purgePrivateMessages();
+                      final p = await SharedPreferences.getInstance();
+                      await p.clear();
+                      await FirebaseAuth.instance.signOut();
+                      if (!mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    },
+                    icon: const Icon(Icons.logout, color: Colors.red),
+                    label: Text('Sign Out', style: TextStyle(color: Colors.red, fontSize: Responsive.fontSize(context, 16))),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      padding: Responsive.paddingSymmetric(context, v: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+                    ),
+                  ),
+                ),
+                SizedBox(height: Responsive.vertical(context, 40)),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showFeedbackDialog(BuildContext context, AppColorSet c) {
+    String category = 'general';
+    int rating = 5;
+    final msgController = TextEditingController();
+    int wordCount = 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: c.card,
+          title: Text('Send Feedback', style: TextStyle(color: c.text)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Category
+                Text('Category', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: category,
+                  dropdownColor: c.card,
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    filled: true, fillColor: c.bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'general', child: Text('General')),
+                    DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
+                    DropdownMenuItem(value: 'feature', child: Text('Feature Request')),
+                    DropdownMenuItem(value: 'security', child: Text('Security')),
+                  ],
+                  onChanged: (v) => setDialogState(() => category = v ?? 'general'),
+                ),
+                const SizedBox(height: 14),
+
+                // Rating
+                Text('Rating', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) => GestureDetector(
+                    onTap: () => setDialogState(() => rating = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        i < rating ? Icons.star : Icons.star_border,
+                        color: i < rating ? Colors.amber : c.textHint,
+                        size: 32,
+                      ),
+                    ),
+                  )),
+                ),
+                const SizedBox(height: 14),
+
+                // Message
+                Text('Your Feedback', style: TextStyle(color: c.textMuted, fontSize: 13)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: msgController,
+                  maxLines: 4,
+                  style: TextStyle(color: c.text),
+                  decoration: InputDecoration(
+                    hintText: 'Tell us what you think...',
+                    hintStyle: TextStyle(color: c.textHint),
+                    filled: true, fillColor: c.bg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                  ),
+                  onChanged: (v) {
+                    setDialogState(() {
+                      wordCount = v.trim().isEmpty ? 0 : v.trim().split(RegExp(r'\s+')).length;
+                    });
+                  },
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '$wordCount/100 words',
+                      style: TextStyle(
+                        color: wordCount > 100 ? Colors.red : c.textHint,
+                        fontSize: 12,
+                        fontWeight: wordCount > 100 ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: c.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: wordCount == 0 || wordCount > 100 ? null : () async {
+                Navigator.pop(ctx);
+                await _submitFeedback(context, msgController.text.trim(), category, rating);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue),
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitFeedback(BuildContext context, String message, String category, int rating) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('current_user_id');
+      final userName = prefs.getString('current_user_name') ?? prefs.getString('profile_name');
+      final userPhone = prefs.getString('current_user_phone');
+      final token = prefs.getString('firebase_token');
+
+      final resp = await http.post(
+        Uri.parse('${AppConfig.apiBase}/feedback'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'userName': userName,
+          'userPhone': userPhone,
+          'message': message,
+          'category': category,
+          'rating': rating,
+        }),
+      );
+      if (!context.mounted) return;
+      if (resp.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Thank you for your feedback!'), backgroundColor: Colors.green),
+        );
+      } else if (resp.statusCode == 403) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Feedback is currently disabled'), backgroundColor: Colors.orange),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send feedback: ${resp.statusCode}'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Widget _settingsHeader(String title) {
+    return Padding(
+      padding: EdgeInsets.only(left: Responsive.horizontal(context, 4), bottom: Responsive.vertical(context, 8)),
+      child: Text(title, style: TextStyle(color: AppColors.primaryBlue, fontSize: Responsive.fontSize(context, 13), fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _settingsTile({required IconData icon, required String title, String? subtitle, VoidCallback? onTap, Widget? trailing}) {
+    return Container(
+      margin: EdgeInsets.only(bottom: Responsive.vertical(context, 4)),
+      decoration: BoxDecoration(color: AppColors.of(context).card, borderRadius: BorderRadius.circular(Responsive.radius(context, 12))),
+      child: ListTile(
+        leading: Container(
+          padding: Responsive.paddingAll(context, 8),
+          decoration: BoxDecoration(color: AppColors.primaryBlue.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(Responsive.radius(context, 10))),
+          child: Icon(icon, color: AppColors.primaryBlue, size: Responsive.size(context, 22)),
+        ),
+        title: Text(title, style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 15), fontWeight: FontWeight.w500)),
+        subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: AppColors.of(context).textMuted, fontSize: Responsive.fontSize(context, 13))) : null,
+        trailing: trailing ?? (onTap != null ? Icon(Icons.chevron_right, color: AppColors.of(context).textHint, size: Responsive.size(context, 22)) : null),
+        onTap: onTap,
+      ),
+    );
   }
 
   Widget _buildBottomNav() {
     return Container(
-      decoration: BoxDecoration(color: Colors.black87, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, -2))]),
+      decoration: BoxDecoration(color: AppColors.of(context).card, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, -2))]),
       child: SafeArea(
         child: SizedBox(
-          height: 65,
+          height: Responsive.size(context, 65),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', 8),
+              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home', 0),
               _buildNavItem(1, Icons.groups_outlined, Icons.groups, 'Groups', 0),
-              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'Coming Soon', 0),
+              _buildNavItem(2, Icons.auto_awesome_outlined, Icons.auto_awesome, 'AI Bot', 0),
               _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings', 0),
             ],
           ),
@@ -247,6 +890,37 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildNavItem(int index, IconData iconOutline, IconData iconFilled, String label, int badge) {
     final bool isSelected = _currentIndex == index;
-    return Expanded(child: InkWell(onTap: () { setState(() => _currentIndex = index); _fabAnimController.forward(from: 0); }, child: Stack(alignment: Alignment.topCenter, children: [ Container(padding: const EdgeInsets.symmetric(vertical: 8), decoration: isSelected ? const BoxDecoration(border: Border(top: BorderSide(color: kPrimaryBlue, width: 2))) : null, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [ Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? kPrimaryBlue : Colors.white70, size: 24), const SizedBox(height: 4), Text(label, style: TextStyle(color: isSelected ? kPrimaryBlue : Colors.white70, fontSize: 11, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)), ])), if (badge > 0) Positioned(top: 4, right: MediaQuery.of(context).size.width / 8 - 20, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: kPrimaryBlue, borderRadius: BorderRadius.circular(10)), constraints: const BoxConstraints(minWidth: 18), child: Text(badge.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center))), ])));
+    return Expanded(
+      child: InkWell(
+        onTap: () { setState(() => _currentIndex = index); _fabAnimController.forward(from: 0); },
+        child: Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            Container(
+              padding: Responsive.paddingSymmetric(context, v: 8),
+              decoration: isSelected ? const BoxDecoration(border: Border(top: BorderSide(color: AppColors.primaryBlue, width: 2))) : null,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isSelected ? iconFilled : iconOutline, color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, size: Responsive.size(context, 24)),
+                  SizedBox(height: Responsive.vertical(context, 4)),
+                  Text(label, style: TextStyle(color: isSelected ? AppColors.primaryBlue : AppColors.of(context).textSecondary, fontSize: Responsive.fontSize(context, 11), fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+                ],
+              ),
+            ),
+            if (badge > 0) Positioned(
+              top: 4,
+              right: Responsive.width(context) / 8 - 20,
+              child: Container(
+                padding: Responsive.paddingSymmetric(context, h: 6, v: 2),
+                decoration: BoxDecoration(color: AppColors.primaryBlue, borderRadius: BorderRadius.circular(Responsive.radius(context, 10))),
+                constraints: BoxConstraints(minWidth: Responsive.size(context, 18)),
+                child: Text(badge.toString(), style: TextStyle(color: AppColors.of(context).text, fontSize: Responsive.fontSize(context, 10), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

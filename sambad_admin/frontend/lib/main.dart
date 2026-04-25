@@ -24,7 +24,7 @@ class _SambadAdminAppState extends State<SambadAdminApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Sambad Admin',
+      title: 'Samvad Admin',
       theme: ThemeData(
         colorScheme: ColorScheme(
           brightness: Brightness.light,
@@ -34,8 +34,8 @@ class _SambadAdminAppState extends State<SambadAdminApp> {
           onSecondary: Colors.white,
           error: errorRed,
           onError: Colors.white,
-          background: skyBlueLight,
-          onBackground: Colors.black,
+          surfaceContainerHighest: skyBlueLight,
+          onSurfaceVariant: Colors.black,
           surface: skyBlue,
           onSurface: Colors.black,
         ),
